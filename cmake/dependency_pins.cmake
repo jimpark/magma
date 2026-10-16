@@ -6,7 +6,7 @@ include_guard(GLOBAL)
 set(MAGMA_BASALT_VERSION "0.6.0")
 set(MAGMA_BASALT_URL
   "https://github.com/nadiasvertex/basalt/archive/refs/tags/v${MAGMA_BASALT_VERSION}.tar.gz")
-set(MAGMA_BASALT_SHA256 "daf99cdf3f25867a42737661090f3b8ae5be08f8471ce7ae1e4dced37e394c36")
+set(MAGMA_BASALT_SHA256 "162c4d2c3ef05d0600ff0aab19d69a073c54810a80fb7b74614f78cf3aff9763")
 
 set(MAGMA_SDL3_VERSION "3.4.18")
 set(MAGMA_SDL3_URL
