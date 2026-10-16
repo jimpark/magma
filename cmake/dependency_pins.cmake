@@ -3,7 +3,7 @@
 # local checkout instead, for example in offline builds.
 include_guard(GLOBAL)
 
-set(MAGMA_BASALT_VERSION "0.5.0")
+set(MAGMA_BASALT_VERSION "0.6.0")
 set(MAGMA_BASALT_URL
   "https://github.com/nadiasvertex/basalt/archive/refs/tags/v${MAGMA_BASALT_VERSION}.tar.gz")
 set(MAGMA_BASALT_SHA256 "daf99cdf3f25867a42737661090f3b8ae5be08f8471ce7ae1e4dced37e394c36")
