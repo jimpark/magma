@@ -1,3 +1,5 @@
+#include "magma/platform/media_clock.h"
+
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
@@ -222,6 +224,21 @@ auto redraw_mode_from_environment() -> redraw_mode {
                                                                : redraw_mode::retained;
 }
 
+// The layer's drawable count (2 or 3) and display sync (0 or 1), from MAGMA_METAL_DRAWABLES and
+// MAGMA_METAL_VSYNC. Other values keep the layer's defaults: 3 drawables, synced to the display.
+auto apply_layer_settings_from_environment(CAMetalLayer *layer) -> void {
+  auto const read = [](char const *name) {
+    auto const *const value = std::getenv(name);
+    return std::string_view{value == nullptr ? "" : value};
+  };
+  if (auto const drawables = read("MAGMA_METAL_DRAWABLES"); drawables == "2" || drawables == "3") {
+    layer.maximumDrawableCount = drawables == "2" ? 2 : 3;
+  }
+  if (auto const vsync = read("MAGMA_METAL_VSYNC"); vsync == "0" || vsync == "1") {
+    layer.displaySyncEnabled = vsync == "1" ? YES : NO;
+  }
+}
+
 auto describe(NSError *error) -> std::string {
   return error == nil ? std::string{"unknown error"}
                       : std::string{error.localizedDescription.UTF8String};
@@ -308,6 +325,7 @@ public:
       layer_.pixelFormat = MTLPixelFormatBGRA8Unorm;
       // A retained frame is copied into the drawable, which a framebuffer-only texture forbids.
       layer_.framebufferOnly = full_ ? YES : NO;
+      apply_layer_settings_from_environment(layer_);
     }
     in_flight_ = dispatch_semaphore_create(static_cast<long>(frames_in_flight));
     return {};
@@ -374,15 +392,12 @@ public:
           copy_to_drawable(commands, drawable.texture);
         }
         if (handler) {
-          auto const clock_offset = platform::event_clock_now().count() -
-                                    static_cast<std::int64_t>(CACurrentMediaTime() * 1e9);
           [drawable addPresentedHandler:^(id<MTLDrawable> shown) {
             auto const time = shown.presentedTime;
             if (time == 0) {
               handler(std::nullopt);
             } else {
-              handler(
-                  std::chrono::nanoseconds{static_cast<std::int64_t>(time * 1e9) + clock_offset});
+              handler(detail::media_time_to_event_clock(time));
             }
           }];
         }

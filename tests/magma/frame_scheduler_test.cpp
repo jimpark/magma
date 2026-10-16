@@ -54,3 +54,86 @@ TEST_CASE("frame scheduler clamps a negative interval", "[scheduler]") {
   scheduler.set_interval(-1);
   CHECK(scheduler.interval() == 0);
 }
+
+TEST_CASE("frame scheduler starts frames at display refreshes once it has one", "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.display_refreshed(1'000, 50);
+  CHECK(scheduler.follows_display());
+  CHECK(scheduler.interval() == 50);
+  scheduler.request_frame();
+  scheduler.begin_frame(1'002);
+
+  scheduler.request_frame();
+  CHECK_FALSE(scheduler.frame_due(1'049));
+  scheduler.display_refreshed(1'050, 50);
+  CHECK(scheduler.frame_due(1'051));
+  CHECK(scheduler.wait_timeout(1'051) == 0);
+}
+
+TEST_CASE("frame scheduler ignores a refresh from before the frame began", "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.display_refreshed(1'000, 50);
+  scheduler.request_frame();
+  scheduler.begin_frame(1'010);
+  scheduler.display_refreshed(1'000, 50);
+  scheduler.request_frame();
+  CHECK_FALSE(scheduler.frame_due(1'020));
+}
+
+TEST_CASE("frame scheduler keeps drawing at the interval when refreshes stop", "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.display_refreshed(1'000, 50);
+  scheduler.request_frame();
+  scheduler.begin_frame(1'002);
+  scheduler.request_frame();
+  // One refresh may be missed; the frame starts after two.
+  CHECK(scheduler.next_frame_time() == 1'100);
+
+  scheduler.begin_frame(1'100);
+  scheduler.request_frame();
+  // A refresh long ago does not make every frame due at once.
+  CHECK(scheduler.next_frame_time() == 1'150);
+}
+
+TEST_CASE("frame scheduler starts an input frame at once when the last frame is shown",
+          "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.display_refreshed(1'000, 50);
+  scheduler.request_frame();
+  scheduler.begin_frame(1'002);
+
+  scheduler.request_input_frame();
+  CHECK_FALSE(scheduler.frame_due(1'010));
+  scheduler.frame_shown();
+  CHECK(scheduler.frame_due(1'010));
+
+  scheduler.begin_frame(1'010);
+  scheduler.request_frame();
+  scheduler.frame_shown();
+  CHECK_FALSE(scheduler.frame_due(1'020));
+}
+
+TEST_CASE("frame scheduler holds an input frame in timer mode until the last frame is shown",
+          "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.request_frame();
+  scheduler.begin_frame(0);
+  scheduler.request_input_frame();
+  CHECK(scheduler.next_frame_time() == 100);
+  scheduler.frame_shown();
+  CHECK(scheduler.next_frame_time() == 0);
+}
+
+TEST_CASE("frame scheduler starts the first frame after a pause without waiting for a refresh",
+          "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.display_refreshed(1'000, 50);
+  scheduler.request_frame();
+  scheduler.begin_frame(1'002);
+  scheduler.frame_shown();
+
+  scheduler.request_frame();
+  CHECK_FALSE(scheduler.frame_due(1'030));
+  CHECK(scheduler.next_frame_time() == 1'052);
+  CHECK(scheduler.frame_due(1'500));
+}

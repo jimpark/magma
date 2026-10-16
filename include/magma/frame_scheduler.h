@@ -8,8 +8,18 @@ namespace magma {
 
 // Decides when the next frame may start. It holds no clock: callers pass a
 // monotonic time in nanoseconds, so the same rules apply to the event loop and
-// to tests. Frame requests coalesce, and frames start at least `interval`
-// apart.
+// to tests. Frame requests coalesce.
+//
+// Until the first `display_refreshed`, frames start at least `interval` apart.
+// After it, a frame starts at the first display refresh after the previous
+// frame began, so each refresh gets at most one frame. When the previous frame
+// is shown and began at least `interval` ago, the frame starts at once, so the
+// first frame after a pause does not wait for a refresh. If no refresh
+// arrives, for example because the window is hidden, frames continue at
+// `interval`.
+//
+// A frame requested for input starts at once when the previous frame has been
+// shown, so that a keystroke reaches the screen without waiting for a refresh.
 class frame_scheduler {
 public:
   using nanoseconds = std::int64_t;
@@ -24,15 +34,51 @@ public:
   }
   [[nodiscard]] auto interval() const noexcept -> nanoseconds { return interval_; }
 
+  // Tells the scheduler that the display refreshed at `time` and refreshes
+  // every `interval`. A zero or negative interval keeps the current one.
+  auto display_refreshed(nanoseconds time, nanoseconds interval) noexcept -> void {
+    last_refresh_ = time;
+    if (interval > 0) {
+      interval_ = interval;
+    }
+  }
+  [[nodiscard]] auto follows_display() const noexcept -> bool { return last_refresh_.has_value(); }
+
   auto request_frame() noexcept -> void { pending_ = true; }
+  // Requests a frame because of input.
+  auto request_input_frame() noexcept -> void {
+    pending_ = true;
+    input_ = true;
+  }
   [[nodiscard]] auto pending() const noexcept -> bool { return pending_; }
 
+  // Tells the scheduler that the frame that began last is on the screen, or
+  // that it drew nothing.
+  auto frame_shown() noexcept -> void { shown_ = true; }
+
   // The time the pending frame may start, or nothing when no frame is pending.
+  // While the scheduler waits for a display refresh, this is the time it stops
+  // waiting for one.
   [[nodiscard]] auto next_frame_time() const noexcept -> std::optional<nanoseconds> {
     if (!pending_) {
       return std::nullopt;
     }
-    return last_start_ ? std::optional{*last_start_ + interval_} : std::optional<nanoseconds>{0};
+    if (!last_start_) {
+      return nanoseconds{0};
+    }
+    if (input_ && shown_) {
+      return *last_start_;
+    }
+    if (last_refresh_) {
+      if (*last_refresh_ > *last_start_) {
+        return *last_refresh_;
+      }
+      if (shown_) {
+        return *last_start_ + interval_;
+      }
+      return std::max(*last_refresh_ + 2 * interval_, *last_start_ + interval_);
+    }
+    return *last_start_ + interval_;
   }
 
   [[nodiscard]] auto frame_due(nanoseconds now) const noexcept -> bool {
@@ -54,13 +100,18 @@ public:
   // produced schedules another frame.
   auto begin_frame(nanoseconds now) noexcept -> void {
     pending_ = false;
+    input_ = false;
+    shown_ = false;
     last_start_ = now;
   }
 
 private:
   nanoseconds interval_;
   std::optional<nanoseconds> last_start_;
+  std::optional<nanoseconds> last_refresh_;
   bool pending_ = false;
+  bool input_ = false;
+  bool shown_ = false;
 };
 
 } // namespace magma

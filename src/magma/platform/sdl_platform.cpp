@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 
@@ -293,17 +294,22 @@ auto platform::wait_for_events(std::optional<std::chrono::nanoseconds> timeout) 
     SDL_WaitEvent(nullptr);
     return;
   }
-  auto const milliseconds = std::chrono::ceil<std::chrono::milliseconds>(*timeout).count();
-  SDL_WaitEventTimeout(nullptr, static_cast<Sint32>(std::max<std::int64_t>(milliseconds, 0)));
+  auto const deadline = now() + *timeout;
+  auto const milliseconds = std::chrono::floor<std::chrono::milliseconds>(
+      std::max(*timeout, std::chrono::nanoseconds{0}));
+  if (SDL_WaitEventTimeout(nullptr, static_cast<Sint32>(milliseconds.count()))) {
+    return;
+  }
+  // SDL waits in whole milliseconds. A short sleep ends the wait at the exact time; a timer on
+  // another thread would not, because the system can delay a long timer by several milliseconds.
+  if (auto const remaining = deadline - now(); remaining > std::chrono::nanoseconds{0}) {
+    std::this_thread::sleep_for(remaining);
+  }
 }
 
 auto platform::event_clock_now() -> basalt::event_time { return now(); }
 
-auto platform::wake() -> void {
-  auto event = SDL_Event{};
-  event.type = SDL_EVENT_USER;
-  SDL_PushEvent(&event);
-}
+auto platform::wake() -> void { detail::push_wake_event(); }
 
 auto platform::poll_events() -> std::vector<platform_event> {
   auto result = std::vector<platform_event>{};

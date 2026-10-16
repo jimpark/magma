@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
-project(magma VERSION 0.2.1 DESCRIPTION "Windows, input and rendering for Basalt applications"
+project(magma VERSION 0.3.0 DESCRIPTION "Windows, input and rendering for Basalt applications"
   LANGUAGES CXX)
 
 option(MAGMA_BUILD_TESTS "Build the Catch2 test suite" ${PROJECT_IS_TOP_LEVEL})
 option(MAGMA_BUILD_BENCHMARKS "Build the Catch2 benchmarks" OFF)
+option(MAGMA_BUILD_EXAMPLES "Build the example programs" ${PROJECT_IS_TOP_LEVEL})
 option(MAGMA_INSTALL "Add install and package export rules" ${PROJECT_IS_TOP_LEVEL})
 option(MAGMA_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ${PROJECT_IS_TOP_LEVEL})
 option(MAGMA_SANITIZE "Enable address and undefined-behavior sanitizers" OFF)
@@ -39,6 +40,10 @@ add_subdirectory(src)
 if(MAGMA_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(MAGMA_BUILD_EXAMPLES)
+  add_subdirectory(examples)
 endif()
 
 if(MAGMA_BUILD_BENCHMARKS)

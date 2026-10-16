@@ -236,6 +236,17 @@ TEST_CASE("presentations are recorded only while tracking is on", "[render]") {
   CHECK(renderer.take_presentations().empty());
 }
 
+TEST_CASE("an offscreen frame is never in flight", "[render]") {
+  auto renderer = offscreen({4, 4}, 1, each_backend());
+  CHECK_FALSE(renderer.frame_in_flight());
+  REQUIRE(renderer.render(fill(red), {}, white).has_value());
+  CHECK_FALSE(renderer.frame_in_flight());
+  renderer.request_full_redraw();
+  REQUIRE(renderer.render(fill(blue), {}, white).has_value());
+  CHECK(renderer.last_frame() == 2);
+  CHECK_FALSE(renderer.frame_in_flight());
+}
+
 TEST_CASE("a large frame drawn at once matches the same frame drawn in strips", "[render]") {
   auto const preference = each_backend();
   // Large areas are drawn on several threads and small ones on one. Clipping to a strip can

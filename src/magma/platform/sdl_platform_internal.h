@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "display_link.h"
+
 namespace magma {
 
 struct sdl_window_deleter {
@@ -40,7 +42,10 @@ struct platform::impl {
   // Per-window graphics resources; they must be released before the window.
   std::unordered_map<window_id, sdl_metal_view_handle> metal_views;
   std::unordered_map<window_id, sdl_gl_context_handle> gl_contexts;
+  // Created on the first request. A null entry means the window cannot have one.
+  std::unordered_map<window_id, std::unique_ptr<detail::display_link>> display_links;
   auto release_graphics() -> void {
+    display_links.clear();
     metal_views.clear();
     gl_contexts.clear();
   }
@@ -50,6 +55,13 @@ struct platform::impl {
 };
 
 namespace detail {
+
+// Pushes an event that ends `platform::wait_for_events`. Safe on any thread.
+inline auto push_wake_event() -> void {
+  auto event = SDL_Event{};
+  event.type = SDL_EVENT_USER;
+  SDL_PushEvent(&event);
+}
 
 inline auto window_for(SDL_WindowID id) -> SDL_Window * { return SDL_GetWindowFromID(id); }
 

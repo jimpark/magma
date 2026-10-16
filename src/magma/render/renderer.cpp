@@ -1,6 +1,7 @@
 #include "magma/renderer.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <mutex>
 #include <utility>
@@ -23,11 +24,19 @@ auto device_rect(basalt::rect area, float scale, int width, int height) -> pixel
 // Shared with the presentation handlers, which can run after the renderer is gone.
 struct presentation_log {
   std::mutex mutex;
+  bool tracking = false;
   std::vector<presentation> entries;
+  // The last frame that reached the screen or was dropped by it.
+  std::atomic<std::uint64_t> shown{0};
 
   auto add(presentation entry) -> void {
+    auto previous = shown.load();
+    while (previous < entry.frame && !shown.compare_exchange_weak(previous, entry.frame)) {
+    }
     auto const lock = std::scoped_lock{mutex};
-    entries.push_back(entry);
+    if (tracking) {
+      entries.push_back(entry);
+    }
   }
 };
 
@@ -71,7 +80,7 @@ struct renderer::impl {
   float scale = 1;
   bool full_redraw = true;
   std::uint64_t frame = 0;
-  std::shared_ptr<presentation_log> presentations;
+  std::shared_ptr<presentation_log> presentations = std::make_shared<presentation_log>();
 
   [[nodiscard]] auto device_width() const -> int {
     return std::max(1, static_cast<int>(std::lround(viewport.width * scale)));
@@ -162,10 +171,8 @@ auto renderer::render(basalt::paint_commands const &commands, std::span<basalt::
 
   auto const frame = impl_->frame + 1;
   auto const log = impl_->presentations;
-  auto const reported =
-      log != nullptr &&
-      impl_->backend->report_presentation(
-          [log, frame](std::optional<std::chrono::nanoseconds> time) { log->add({frame, time}); });
+  auto const reported = impl_->backend->report_presentation(
+      [log, frame](std::optional<std::chrono::nanoseconds> time) { log->add({frame, time}); });
   auto result = impl_->backend->draw({.commands = commands,
                                       .areas = areas,
                                       .full_redraw = impl_->full_redraw,
@@ -176,7 +183,7 @@ auto renderer::render(basalt::paint_commands const &commands, std::span<basalt::
   if (result) {
     impl_->full_redraw = !impl_->backend->retains_frame();
     impl_->frame = frame;
-    if (log != nullptr && !reported) {
+    if (!reported) {
       log->add({frame, platform::event_clock_now()});
     }
   }
@@ -192,19 +199,20 @@ auto renderer::read_frame() const -> basalt::raster_image_ptr {
 }
 
 auto renderer::track_presentations(bool enabled) -> void {
+  auto const lock = std::scoped_lock{impl_->presentations->mutex};
+  impl_->presentations->tracking = enabled;
   if (!enabled) {
-    impl_->presentations.reset();
-  } else if (impl_->presentations == nullptr) {
-    impl_->presentations = std::make_shared<presentation_log>();
+    impl_->presentations->entries.clear();
   }
+}
+
+auto renderer::frame_in_flight() const -> bool {
+  return impl_->presentations->shown.load() < impl_->frame;
 }
 
 auto renderer::last_frame() const -> std::uint64_t { return impl_->frame; }
 
 auto renderer::take_presentations() -> std::vector<presentation> {
-  if (impl_->presentations == nullptr) {
-    return {};
-  }
   auto const lock = std::scoped_lock{impl_->presentations->mutex};
   return std::exchange(impl_->presentations->entries, {});
 }

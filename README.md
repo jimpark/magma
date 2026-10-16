@@ -12,7 +12,8 @@ frame, and turns the paint commands into pixels.
   shows pixels with `present_pixels`.
 - **Frame scheduler** (`magma/frame_scheduler.h`): decides when the next frame can start. It has no
   clock of its own. The caller gives it the time, so the same rules apply in an event loop and in
-  tests.
+  tests. It starts frames at the display's refreshes, and it starts a frame for input at once when
+  the previous frame is on the screen.
 - **Renderer** (`magma/renderer.h`): draws Basalt paint commands into a window, or into memory for
   tests and tools. It keeps the last frame and redraws only the damaged areas.
 
@@ -44,15 +45,26 @@ The Metal backend keeps the frame in a texture, redraws the damaged areas and co
 into the window. To draw each frame from nothing into the window instead, set the environment
 variable `MAGMA_METAL_REDRAW=full` before you create the renderer. Then `needs_full_redraw` is
 always true, so send all of the paint commands on each frame. This mode is for comparing the two
-methods. The Metal backend compiles its shaders when it starts, so the build does not need the
+methods. Two more variables change the window's Metal layer, also for measurement:
+`MAGMA_METAL_DRAWABLES` (`2` or `3`) sets the number of drawables, and `MAGMA_METAL_VSYNC` (`0` or
+`1`) turns display sync off or on. Without them, the layer keeps three drawables and syncs to the
+display. The Metal backend compiles its shaders when it starts, so the build does not need the
 Metal toolchain.
 
-The application keeps its own event loop. A typical loop does these steps:
+The application keeps its own event loop. `examples/event_loop.cpp` is a complete loop. A typical
+loop does these steps:
 
-1. Call `wait_for_events` with the timeout that `frame_scheduler::wait_timeout` gives.
-2. Call `poll_events` and send the events to the Basalt widget tree.
-3. If the tree needs a new frame, call `request_frame`.
-4. When `frame_due` is true, call `begin_frame`, paint the tree, and give the paint commands and the
+1. While a frame is pending, call `platform::request_display_tick`. On macOS 14 and later the
+   platform then sends one tick at the display's next refresh. Elsewhere it returns false, and the
+   scheduler uses the interval from `display_refresh_rate`.
+2. Call `wait_for_events` with the timeout that `frame_scheduler::wait_timeout` gives. The wait
+   ends at a display tick, at an event, or at the timeout, to the nearest nanosecond that the
+   system allows.
+3. Give each tick from `take_display_tick` to `display_refreshed`. When
+   `renderer::frame_in_flight` is false, call `frame_shown`.
+4. Call `poll_events` and send the events to the Basalt widget tree. For a frame caused by input,
+   call `request_input_frame`. For other frames, such as animations, call `request_frame`.
+5. When `frame_due` is true, call `begin_frame`, paint the tree, and give the paint commands and the
    damaged areas to `renderer::render`.
 
 ## Requirements
@@ -154,6 +166,7 @@ For other setups, build from source with one of the methods above.
 | ------ | ------- | ------ |
 | `MAGMA_BUILD_TESTS` | on when top level | Build the Catch2 test suite. |
 | `MAGMA_BUILD_BENCHMARKS` | off | Build the Catch2 benchmarks. The `benchmark` preset sets it. |
+| `MAGMA_BUILD_EXAMPLES` | on when top level | Build the programs in `examples/`. |
 | `MAGMA_INSTALL` | on when top level | Add install rules and the CMake package. |
 | `MAGMA_METAL` | on for Clang on macOS | Build the Metal backend. It is written in Objective-C++, which GCC does not compile. |
 | `MAGMA_SDL` | `bundled` | `bundled` builds a static SDL from the pinned release. `system` uses an installed SDL 3.2 or later. |

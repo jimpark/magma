@@ -78,7 +78,7 @@ jobs:
         run: pip install --user clang-format==23.1.2
       - name: Check formatting
         run: >
-          git ls-files -- 'include/*.h' 'src/*.cpp' 'src/*.h' 'src/*.mm' 'tests/*.cpp' 'tests/*.h' 'benchmarks/*.cpp'
+          git ls-files -- 'include/*.h' 'src/*.cpp' 'src/*.h' 'src/*.mm' 'tests/*.cpp' 'tests/*.h' 'benchmarks/*.cpp' 'examples/*.cpp'
           | xargs clang-format --dry-run --Werror
 
   consumer:

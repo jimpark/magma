@@ -268,3 +268,26 @@ TEST_CASE("wake ends a wait without producing an event", "[platform][events]") {
   CHECK(std::chrono::steady_clock::now() - start < 5s);
   CHECK(platform.poll_events().empty());
 }
+
+TEST_CASE("a timeout with a fraction of a millisecond is waited in full", "[platform][events]") {
+  auto platform = make_platform();
+  for (auto i = 0; i < 5; ++i) {
+    (void)platform.poll_events();
+    auto const start = magma::platform::event_clock_now();
+    platform.wait_for_events(2900us);
+    auto const waited = magma::platform::event_clock_now() - start;
+    CHECK(waited >= 2900us);
+    CHECK(waited < 5s);
+  }
+}
+
+TEST_CASE("display ticks need a window on a display the platform can follow", "[platform]") {
+  auto platform = make_platform();
+  CHECK_FALSE(platform.request_display_tick(9999));
+  CHECK_FALSE(platform.take_display_tick(9999).has_value());
+
+  // The dummy driver has no display link, so the caller falls back to a timer.
+  auto const window = make_window(platform, {40, 30});
+  CHECK_FALSE(platform.request_display_tick(window));
+  CHECK_FALSE(platform.take_display_tick(window).has_value());
+}

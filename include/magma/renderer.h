@@ -103,6 +103,10 @@ public:
   auto track_presentations(bool enabled) -> void;
   // The number of the last frame `render` presented, counting from 1; 0 before the first.
   [[nodiscard]] auto last_frame() const -> std::uint64_t;
+  // True while the last presented frame has not reached the screen. Then a new frame would wait
+  // for it, so a frame for input is better started at the next display refresh. The raster
+  // backend hands each frame to the window system at once, so it is never in flight.
+  [[nodiscard]] auto frame_in_flight() const -> bool;
   // The presentations recorded since the last call, in the order they were reported. The raster
   // backend reports when the frame was handed to the window system.
   [[nodiscard]] auto take_presentations() -> std::vector<presentation>;

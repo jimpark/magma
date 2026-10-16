@@ -38,6 +38,7 @@ auto platform::create_window(window_config const &config)
 }
 
 auto platform::destroy_window(window_id window) -> void {
+  impl_->display_links.erase(window);
   impl_->metal_views.erase(window);
   impl_->gl_contexts.erase(window);
   impl_->windows.erase(window);
@@ -177,6 +178,33 @@ auto platform::present_pixels(window_id window, std::span<std::byte const> pixel
     return std::unexpected(platform_error{SDL_GetError()});
   }
   return {};
+}
+
+auto platform::request_display_tick(window_id window) -> bool {
+  auto const found = impl_->windows.find(window);
+  if (found == impl_->windows.end()) {
+    return false;
+  }
+  auto link = impl_->display_links.find(window);
+  if (link == impl_->display_links.end()) {
+    link = impl_->display_links
+               .emplace(window, detail::make_display_link(found->second.get(),
+                                                          [] { detail::push_wake_event(); }))
+               .first;
+  }
+  if (link->second == nullptr) {
+    return false;
+  }
+  link->second->request();
+  return true;
+}
+
+auto platform::take_display_tick(window_id window) -> std::optional<display_tick> {
+  auto const link = impl_->display_links.find(window);
+  if (link == impl_->display_links.end() || link->second == nullptr) {
+    return std::nullopt;
+  }
+  return link->second->take();
 }
 
 auto platform::metal_layer(window_id window) -> void * {

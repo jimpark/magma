@@ -57,6 +57,12 @@ struct file_filter {
   std::string_view pattern;
 };
 
+// One refresh of the display a window is on. Times are on the platform's event clock.
+struct display_tick {
+  std::chrono::nanoseconds time{};     // When the display started to show its latest frame.
+  std::chrono::nanoseconds interval{}; // The time until the display's next refresh.
+};
+
 enum class cursor_shape {
   arrow,
   text,
@@ -106,6 +112,14 @@ public:
   // Ends a wait early. Safe to call while another callback is running on the
   // event thread, such as a file dialog's.
   auto wake() -> void;
+
+  // Asks for one `display_tick` at the next refresh of the display that `window` is on. The tick
+  // ends a wait for events, and `take_display_tick` returns it. Ask again for each tick: an idle
+  // application gets no ticks. Returns false when the platform cannot follow the display (only
+  // macOS 14 and later can), and then the caller paces frames with `display_refresh_rate`.
+  auto request_display_tick(window_id window) -> bool;
+  // The latest tick for `window` since the previous call, if one arrived.
+  [[nodiscard]] auto take_display_tick(window_id window) -> std::optional<display_tick>;
 
   [[nodiscard]] auto clipboard_text() const -> std::expected<std::string, platform_error>;
   auto set_clipboard_text(std::string_view text) -> std::expected<void, platform_error>;

@@ -17,11 +17,13 @@ holds the rules for changing it.
 | Path | Contents |
 | ---- | -------- |
 | `include/magma/` | Public headers. `magma/magma.h` includes all of them. |
-| `src/magma/platform/` | The SDL 3 platform. `sdl_platform_internal.h` is private. |
+| `src/magma/platform/` | The SDL 3 platform. `sdl_platform_internal.h` is private. `display_link_macos.mm` sends display ticks on macOS 14 and later; `display_link_stub.cpp` replaces it elsewhere. |
 | `src/magma/render/` | The renderer. `backend.h` is the interface each backend implements. `blend2d_painter` replays paint commands with Blend2D. `gpu_scene` turns paint commands into instances and passes for every GPU backend, and `glyph_atlas` rasterizes their glyphs with Blend2D. `metal_backend.mm` is the Metal backend and its shader. |
 | `tests/magma/` | Catch2 tests. The platform tests use SDL's dummy video driver. `golden.h` compares frames with golden images. `gpu_scene_test.cpp` tests the GPU scene without a GPU. |
 | `tests/data/golden/` | Golden images for the render tests. |
 | `tests/data/fonts/` | Noto Sans, a variable font, for the text in the render tests and benchmarks. |
+| `docs/benchmarks.md` | Frame and latency measurements from med, and the decisions they support. |
+| `examples/` | Example programs. `event_loop.cpp` paces frames by the display. |
 | `benchmarks/` | Catch2 benchmarks that replay a page of an article. |
 | `tests/consumer/` | A small project that consumes Magma by `find_package`, `add_subdirectory` or `FetchContent`. |
 | `cmake/` | Compiler options, dependencies and their pins, the offline source fetcher, install rules, and the include boundary check. |

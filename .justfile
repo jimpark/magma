@@ -7,12 +7,12 @@ default:
 [doc('Format all C++ sources with clang-format.')]
 [group('format')]
 format:
-    git ls-files -co --exclude-standard -- 'include/*.h' 'src/*.cpp' 'src/*.h' 'src/*.mm' 'tests/*.cpp' 'tests/*.h' 'benchmarks/*.cpp' | xargs clang-format -i
+    git ls-files -co --exclude-standard -- 'include/*.h' 'src/*.cpp' 'src/*.h' 'src/*.mm' 'tests/*.cpp' 'tests/*.h' 'benchmarks/*.cpp' 'examples/*.cpp' | xargs clang-format -i
 
 [doc('Fail if any C++ source is not formatted.')]
 [group('format')]
 format-check:
-    git ls-files -co --exclude-standard -- 'include/*.h' 'src/*.cpp' 'src/*.h' 'src/*.mm' 'tests/*.cpp' 'tests/*.h' 'benchmarks/*.cpp' | xargs clang-format --dry-run --Werror
+    git ls-files -co --exclude-standard -- 'include/*.h' 'src/*.cpp' 'src/*.h' 'src/*.mm' 'tests/*.cpp' 'tests/*.h' 'benchmarks/*.cpp' 'examples/*.cpp' | xargs clang-format --dry-run --Werror
 
 [doc('Configure and build with a preset: debug, release or sanitize.')]
 [group('build')]
