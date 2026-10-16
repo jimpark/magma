@@ -1,6 +1,6 @@
 # Installs the library, its headers and a CMake package, so that consumers can use
 # find_package(magma) against an install prefix or an unpacked release archive. A bundled SDL and
-# a fetched Basalt install their own packages into the same prefix.
+# a fetched Basalt and Blend2D install their own packages into the same prefix.
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -24,3 +24,5 @@ install(FILES
   "${PROJECT_BINARY_DIR}/magmaConfigVersion.cmake"
   DESTINATION ${MAGMA_CMAKE_DIR})
 install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/magma)
+install(FILES "${blend2d_SOURCE_DIR}/LICENSE.md" DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/magma
+  RENAME blend2d-LICENSE.md)

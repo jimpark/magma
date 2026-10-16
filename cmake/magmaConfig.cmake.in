@@ -2,8 +2,9 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(basalt @MAGMA_BASALT_VERSION@ CONFIG)
-# Magma is a static library, so programs that use it link SDL too.
+# Magma is a static library, so programs that use it link SDL and Blend2D too.
 find_dependency(SDL3 3.2 CONFIG)
+find_dependency(blend2d CONFIG)
 
 include("${CMAKE_CURRENT_LIST_DIR}/magmaTargets.cmake")
 check_required_components(magma)

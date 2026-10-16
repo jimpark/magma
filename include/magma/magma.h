@@ -4,3 +4,4 @@
 
 #include "magma/frame_scheduler.h"
 #include "magma/platform.h"
+#include "magma/renderer.h"

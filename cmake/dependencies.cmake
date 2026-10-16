@@ -1,4 +1,5 @@
-# Third-party dependencies: Basalt, SDL 3 for windows and input, and Catch2 for the tests.
+# Third-party dependencies: Basalt, SDL 3 for windows and input, Blend2D for raster rendering, and
+# Catch2 for the tests and benchmarks.
 include(FetchContent)
 include("${CMAKE_CURRENT_LIST_DIR}/dependency_pins.cmake")
 
@@ -32,7 +33,22 @@ else()
   find_package(SDL3 3.2 CONFIG REQUIRED)
 endif()
 
-if(MAGMA_BUILD_TESTS)
+# A static Blend2D is linked into every program that uses Magma, and installed beside it like SDL.
+# Its headers are system headers, so its code does not trigger Magma's warnings.
+set(BLEND2D_STATIC ON)
+if(MAGMA_INSTALL)
+  set(BLEND2D_NO_INSTALL OFF)
+else()
+  set(BLEND2D_NO_INSTALL ON)
+endif()
+FetchContent_Declare(blend2d
+  URL "${MAGMA_BLEND2D_URL}"
+  URL_HASH "SHA256=${MAGMA_BLEND2D_SHA256}"
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  SYSTEM)
+FetchContent_MakeAvailable(blend2d)
+
+if(MAGMA_BUILD_TESTS OR MAGMA_BUILD_BENCHMARKS)
   # An installed Catch2 3 is used when one is found; otherwise the pinned release is fetched.
   FetchContent_Declare(Catch2
     URL "${MAGMA_CATCH2_URL}"

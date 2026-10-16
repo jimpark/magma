@@ -1,9 +1,9 @@
 # Magma
 
 Magma is a C++23 library that gives [Basalt](https://github.com/nadiasvertex/basalt) applications
-their windows and input. Basalt turns a widget tree into paint commands. Magma opens the windows,
-translates the operating system's input into Basalt events, and decides when to start each frame.
-Magma will also turn paint commands into pixels. That renderer is not in the library yet.
+their windows, input and rendering. Basalt turns a widget tree into paint commands. Magma opens the
+windows, translates the operating system's input into Basalt events, decides when to start each
+frame, and turns the paint commands into pixels.
 
 ## Contents
 
@@ -13,25 +13,37 @@ Magma will also turn paint commands into pixels. That renderer is not in the lib
 - **Frame scheduler** (`magma/frame_scheduler.h`): decides when the next frame can start. It has no
   clock of its own. The caller gives it the time, so the same rules apply in an event loop and in
   tests.
+- **Renderer** (`magma/renderer.h`): draws Basalt paint commands into a window, or into memory for
+  tests and tools. It keeps the last frame and redraws only the damaged areas.
 
 `magma/magma.h` includes every public header.
 
 The platform uses SDL 3. SDL is a private dependency: no public header includes it, and the
 application does not call SDL.
 
+The renderer has one backend now: `raster`. It draws on the CPU with
+[Blend2D](https://blend2d.com) and shows the frame with `present_pixels`. Blend2D is a private
+dependency too. GPU backends for Metal, Vulkan and Direct3D 12 will follow. Create the window with
+the graphics API that `preferred_graphics_api` gives, so that the renderer can use the best backend.
+
+The raster backend draws text from the glyph outlines that Basalt gives (`font_face::outline`), so
+variable fonts show their correct weight. It draws large areas on up to four threads and small
+areas on one thread. Before each frame, it skips the commands that are outside the damaged areas.
+
 The application keeps its own event loop. A typical loop does these steps:
 
 1. Call `wait_for_events` with the timeout that `frame_scheduler::wait_timeout` gives.
 2. Call `poll_events` and send the events to the Basalt widget tree.
 3. If the tree needs a new frame, call `request_frame`.
-4. When `frame_due` is true, call `begin_frame`, then paint and present the frame.
+4. When `frame_due` is true, call `begin_frame`, paint the tree, and give the paint commands and the
+   damaged areas to `renderer::render`.
 
 ## Requirements
 
 Magma needs CMake 3.25 or later and a C++23 compiler and standard library. CI builds and tests it
 with GCC 14 and Clang 20 on Ubuntu 24.04, Apple Clang on macOS 26, and MSVC from Visual Studio 2022
-on Windows. CMake downloads Basalt, SDL 3 and, for the tests, Catch2 when it configures the build,
-unless you supply them.
+on Windows. CMake downloads Basalt, SDL 3, Blend2D and, for the tests, Catch2 when it configures the
+build, unless you supply them.
 
 On Linux, SDL includes support for X11, Wayland and input methods only when their development
 packages are installed. On Ubuntu, install these packages before you configure:
@@ -94,7 +106,7 @@ find_package(magma 0.1 CONFIG REQUIRED)
 target_link_libraries(my_app PRIVATE magma::magma)
 ```
 
-The install also puts Basalt and the bundled SDL into the prefix, and `find_package(magma)` finds
+The install also puts Basalt, Blend2D and the bundled SDL into the prefix, and `find_package(magma)` finds
 them there. When Magma is included in another project, its tests and install rules are off by
 default, and its warning flags apply only to its own sources. `tests/consumer` is a small project
 that uses each of these methods.
@@ -108,7 +120,7 @@ the Basalt release named in `cmake/dependency_pins.cmake`. If your project decla
 ## Release Archives
 
 Each release on GitHub has prebuilt archives with the headers, Debug and Release static libraries
-and the CMake packages for Magma, Basalt and SDL, plus a `SHA256SUMS` file. The Debug libraries
+and the CMake packages for Magma, Basalt, Blend2D and SDL, plus a `SHA256SUMS` file. The Debug libraries
 have a `d` suffix, and `find_package` picks the configuration that matches your build.
 
 | Archive | Built with | Needs |
@@ -124,6 +136,7 @@ For other setups, build from source with one of the methods above.
 | Option | Default | Effect |
 | ------ | ------- | ------ |
 | `MAGMA_BUILD_TESTS` | on when top level | Build the Catch2 test suite. |
+| `MAGMA_BUILD_BENCHMARKS` | off | Build the Catch2 benchmarks. The `benchmark` preset sets it. |
 | `MAGMA_INSTALL` | on when top level | Add install rules and the CMake package. |
 | `MAGMA_SDL` | `bundled` | `bundled` builds a static SDL from the pinned release. `system` uses an installed SDL 3.2 or later. |
 | `MAGMA_WARNINGS_AS_ERRORS` | on when top level | Treat warnings in Magma's sources as errors. |
@@ -148,7 +161,23 @@ The script also gets HarfBuzz, which Basalt needs. You can also set
 The platform tests use SDL's dummy video driver, so they need no display. They push SDL events and
 check the Basalt events that `poll_events` makes from them.
 
+The golden-image tests render fixed lists of paint commands and compare each frame with a PNG file
+in `tests/data/golden`. Together the lists use every paint command. Each color channel can differ by
+3 levels, and 0.2 percent of the pixels can differ by more. When a test fails, it writes the frame
+and an image of the differences to `.build/<preset>/tests/golden` and gives their names.
+
+To write new golden images, run the tests with `MAGMA_UPDATE_GOLDEN=1`. Examine each new image
+before you commit it.
+
+## Benchmarks
+
+`just bench` builds the `benchmark` preset and replays one page of an article: a heading, about
+30 lines of text, a code block and some rules, in a window of 1200 by 800 layout pixels. It
+measures a full redraw, as when the page scrolls, one line, as when you type, and the caret. It
+also measures the first frame of a new renderer, with empty caches.
+
 ## License
 
-Magma is under the Apache License 2.0; see `LICENSE`. SDL is under the zlib license, and Basalt is
-under the Apache License 2.0. Installs and release archives include their licenses.
+Magma is under the Apache License 2.0; see `LICENSE`. SDL and Blend2D are under the zlib license,
+and Basalt is under the Apache License 2.0. Installs and release archives include their licenses.
+The test font, Noto Sans, is under the SIL Open Font License; see `tests/data/fonts/OFL.txt`.
