@@ -6,7 +6,7 @@
 #include "magma/platform.h"
 #include "magma/renderer.h"
 
-#if defined(MAGMA_HAS_METAL)
+#if defined(MAGMA_HAS_METAL) || defined(MAGMA_HAS_VULKAN) || defined(MAGMA_HAS_D3D12)
 #include "magma/render/backend.h"
 #endif
 
@@ -182,28 +182,54 @@ TEST_CASE("a window renderer presents its frame in the window", "[render][platfo
   CHECK(color_at(10, 5) == red);
 }
 
+namespace {
+
+// The GPU backend that this build and computer should start, if any. The order is the renderer's.
+auto expected_gpu_backend() -> std::optional<magma::backend> {
+#if defined(MAGMA_HAS_METAL)
+  if (magma::render::metal_device_available()) {
+    return magma::backend::metal;
+  }
+#endif
+#if defined(MAGMA_HAS_D3D12)
+  if (magma::render::d3d12_device_available()) {
+    return magma::backend::d3d12;
+  }
+#endif
+#if defined(MAGMA_HAS_VULKAN)
+  if (magma::render::vulkan_device_available()) {
+    return magma::backend::vulkan;
+  }
+#endif
+  return std::nullopt;
+}
+
+} // namespace
+
 TEST_CASE("a window for the GPU uses the platform's graphics API", "[render]") {
   CHECK(magma::preferred_graphics_api(backend_preference::raster_only) ==
         magma::graphics_api::software);
-#if defined(MAGMA_HAS_METAL)
-  CHECK(magma::preferred_graphics_api(backend_preference::automatic) == magma::graphics_api::metal);
-#else
-  CHECK(magma::preferred_graphics_api(backend_preference::automatic) ==
-        magma::graphics_api::software);
-#endif
+  auto const expected = expected_gpu_backend();
+  auto const api = magma::preferred_graphics_api(backend_preference::automatic);
+  if (!expected) {
+    CHECK(api == magma::graphics_api::software);
+  } else if (*expected == magma::backend::metal) {
+    CHECK(api == magma::graphics_api::metal);
+  } else if (*expected == magma::backend::d3d12) {
+    CHECK(api == magma::graphics_api::direct3d12);
+  } else {
+    CHECK(api == magma::graphics_api::vulkan);
+  }
 }
 
 TEST_CASE("the GPU backend starts wherever the computer has a GPU", "[render]") {
   // Otherwise a fault such as a shader that does not compile would only skip the GPU tests.
-#if defined(MAGMA_HAS_METAL)
-  if (!magma::render::metal_device_available()) {
-    SKIP("this computer has no Metal device");
+  auto const expected = expected_gpu_backend();
+  if (!expected) {
+    SKIP("this computer has no GPU backend");
   }
   auto const renderer = magma::renderer::create_offscreen(backend_preference::automatic);
-  CHECK(renderer.active_backend() == magma::backend::metal);
-#else
-  SKIP("Magma has no GPU backend for this platform yet");
-#endif
+  CHECK(renderer.active_backend() == *expected);
 }
 
 TEST_CASE("a renderer for an unknown window is refused", "[render][platform]") {

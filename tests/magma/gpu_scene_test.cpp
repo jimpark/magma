@@ -14,8 +14,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <numbers>
+#include <regex>
+#include <sstream>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -360,4 +365,35 @@ TEST_CASE("the atlas starts over when it has more pages than its limit", "[gpu]"
 
   // A bitmap larger than a page cannot be placed.
   CHECK(atlas.find(*face, *glyph, 200, 0, 0) == nullptr);
+}
+
+namespace {
+
+auto read_shader(char const *name) -> std::string {
+  auto file = std::ifstream{std::filesystem::path{MAGMA_SHADER_DIR} / name};
+  REQUIRE(file.is_open());
+  auto text = std::stringstream{};
+  text << file.rdbuf();
+  return text.str();
+}
+
+// The number of vector members in the shader's `gpu_instance` struct.
+auto instance_member_count(std::string const &source, std::string const &vector_type) -> int {
+  auto const body = std::regex{R"(struct gpu_instance \{([^}]*)\})"};
+  auto match = std::smatch{};
+  REQUIRE(std::regex_search(source, match, body));
+  auto const members = match[1].str();
+  auto const pattern = std::regex{vector_type + R"( \w+;)"};
+  return static_cast<int>(std::distance(
+      std::sregex_iterator{members.begin(), members.end(), pattern}, std::sregex_iterator{}));
+}
+
+} // namespace
+
+TEST_CASE("the shaders declare the instance layout of gpu_instance", "[gpu_scene]") {
+  // Each row is four floats. A change to `gpu_instance` must change every shader with it.
+  constexpr auto rows = static_cast<int>(sizeof(magma::render::gpu_instance) / (4 * sizeof(float)));
+  CHECK(instance_member_count(read_shader("gpu.vert"), "vec4") == rows);
+  CHECK(instance_member_count(read_shader("gpu.frag"), "vec4") == rows);
+  CHECK(instance_member_count(read_shader("gpu.hlsl"), "float4") == rows);
 }

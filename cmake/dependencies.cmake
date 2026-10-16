@@ -1,5 +1,6 @@
-# Third-party dependencies: Basalt, SDL 3 for windows and input, Blend2D for raster rendering, and
-# Catch2 for the tests and benchmarks.
+# Third-party dependencies: Basalt, SDL 3 for windows and input, Blend2D for raster rendering,
+# Catch2 for the tests and benchmarks, and for the Vulkan backend the Vulkan headers, volk and
+# glslang.
 include(FetchContent)
 include("${CMAKE_CURRENT_LIST_DIR}/dependency_pins.cmake")
 
@@ -47,6 +48,38 @@ FetchContent_Declare(blend2d
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   SYSTEM)
 FetchContent_MakeAvailable(blend2d)
+
+if(MAGMA_VULKAN)
+  # The headers and volk are compiled into Magma, so they are only unpacked here. SOURCE_SUBDIR
+  # names a directory that does not exist, so that FetchContent does not add their build files.
+  FetchContent_Declare(vulkan_headers
+    URL "${MAGMA_VULKAN_HEADERS_URL}"
+    URL_HASH "SHA256=${MAGMA_VULKAN_HEADERS_SHA256}"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR none)
+  FetchContent_Declare(volk
+    URL "${MAGMA_VOLK_URL}"
+    URL_HASH "SHA256=${MAGMA_VOLK_SHA256}"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR none)
+  FetchContent_MakeAvailable(vulkan_headers volk)
+
+  # Only glslang's command-line compiler is built, and only when the shaders are compiled.
+  set(ENABLE_OPT OFF)
+  set(ENABLE_SPVREMAPPER OFF)
+  set(ENABLE_GLSLANG_BINARIES ON)
+  set(ENABLE_HLSL OFF)
+  set(BUILD_EXTERNAL OFF)
+  set(ENABLE_CTEST OFF)
+  set(GLSLANG_TESTS OFF)
+  set(GLSLANG_ENABLE_INSTALL OFF)
+  FetchContent_Declare(glslang
+    URL "${MAGMA_GLSLANG_URL}"
+    URL_HASH "SHA256=${MAGMA_GLSLANG_SHA256}"
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    EXCLUDE_FROM_ALL)
+  FetchContent_MakeAvailable(glslang)
+endif()
 
 if(MAGMA_BUILD_TESTS OR MAGMA_BUILD_BENCHMARKS)
   # An installed Catch2 3 is used when one is found; otherwise the pinned release is fetched.

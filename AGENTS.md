@@ -18,7 +18,7 @@ holds the rules for changing it.
 | ---- | -------- |
 | `include/magma/` | Public headers. `magma/magma.h` includes all of them. |
 | `src/magma/platform/` | The SDL 3 platform. `sdl_platform_internal.h` is private. `display_link_macos.mm` sends display ticks on macOS 14 and later; `display_link_stub.cpp` replaces it elsewhere. |
-| `src/magma/render/` | The renderer. `backend.h` is the interface each backend implements. `blend2d_painter` replays paint commands with Blend2D. `gpu_scene` turns paint commands into instances and passes for every GPU backend, and `glyph_atlas` rasterizes their glyphs with Blend2D. `metal_backend.mm` is the Metal backend and its shader. |
+| `src/magma/render/` | The renderer. `backend.h` is the interface each backend implements. `blend2d_painter` replays paint commands with Blend2D. `gpu_scene` turns paint commands into instances and passes for every GPU backend, and `glyph_atlas` rasterizes their glyphs with Blend2D. `metal_backend.mm` is the Metal backend and its shader. `vulkan_backend.cpp` and `d3d12_backend.cpp` are the Vulkan and Direct3D 12 backends. `shaders/` holds their GLSL and HLSL shaders. |
 | `tests/magma/` | Catch2 tests. The platform tests use SDL's dummy video driver. `golden.h` compares frames with golden images. `gpu_scene_test.cpp` tests the GPU scene without a GPU. |
 | `tests/data/golden/` | Golden images for the render tests. |
 | `tests/data/fonts/` | Noto Sans, a variable font, for the text in the render tests and benchmarks. |
@@ -35,7 +35,8 @@ holds the rules for changing it.
   `basalt/`. The `include_boundaries` test enforces this and checks that `magma/magma.h` includes
   every public header.
 - SDL and Blend2D are private dependencies. No public header may include them, and the
-  `include_boundaries` test checks this. Graphics APIs follow the same rule.
+  `include_boundaries` test checks this. Graphics APIs follow the same rule. Only the backend files
+  include a graphics API.
 - Basalt is a public dependency. Magma uses Basalt's types in its API and does not wrap them.
 - Compiler flags go on `magma_compiler_options`, which is linked privately, so they never reach
   consumers.
@@ -51,7 +52,11 @@ holds the rules for changing it.
 - A new paint command needs a golden-image test.
 - The golden images come from the raster backend. GPU backends are compared with the same images
   and never write them. Do not widen the GPU tolerance to make a test pass. Find the cause first.
-- The GPU shaders and `gpu_instance` share one layout. Change them together.
+- The GPU shaders and `gpu_instance` share one layout. Change them together. The Metal shader is in
+  `metal_backend.mm`, the Vulkan shaders are `shaders/gpu.vert` and `shaders/gpu.frag`, and the
+  Direct3D 12 shader is `shaders/gpu.hlsl`. A change to the coverage math goes into all three.
+- The Vulkan and Direct3D 12 backends refuse software devices unless `MAGMA_VULKAN_ALLOW_SOFTWARE`
+  or `MAGMA_D3D12_ADAPTER=warp` accepts them.
 - The Metal backend is Objective-C++ with ARC. Keep Objective-C out of every other file.
 
 ## Commands

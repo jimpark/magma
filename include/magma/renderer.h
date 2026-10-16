@@ -32,6 +32,8 @@ struct render_error {
 enum class backend {
   raster, // Blend2D on the CPU, presented with `platform::present_pixels`.
   metal,  // Metal on the GPU (macOS only).
+  vulkan, // Vulkan on the GPU (Linux and Windows).
+  d3d12,  // Direct3D 12 on the GPU (Windows only).
 };
 
 enum class backend_preference {

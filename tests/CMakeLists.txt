@@ -12,12 +12,19 @@ target_link_libraries(magma_tests PRIVATE magma::magma SDL3::SDL3 blend2d::blend
   Catch2::Catch2WithMain magma_compiler_options)
 target_compile_definitions(magma_tests PRIVATE
   MAGMA_TEST_FONT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts"
+  MAGMA_SHADER_DIR="${PROJECT_SOURCE_DIR}/src/magma/render/shaders"
   MAGMA_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/golden"
   MAGMA_GOLDEN_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/golden")
 # The GPU tests use private headers, which they include as magma/render/<name>.h.
 target_include_directories(magma_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 if(MAGMA_METAL)
   target_compile_definitions(magma_tests PRIVATE MAGMA_HAS_METAL)
+endif()
+if(MAGMA_VULKAN)
+  target_compile_definitions(magma_tests PRIVATE MAGMA_HAS_VULKAN)
+endif()
+if(MAGMA_D3D12)
+  target_compile_definitions(magma_tests PRIVATE MAGMA_HAS_D3D12)
 endif()
 catch_discover_tests(magma_tests)
 

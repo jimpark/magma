@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(magma VERSION 0.4.0 DESCRIPTION "Windows, input and rendering for Basalt applications"
+project(magma VERSION 0.5.0 DESCRIPTION "Windows, input and rendering for Basalt applications"
   LANGUAGES CXX)
 
 option(MAGMA_BUILD_TESTS "Build the Catch2 test suite" ${PROJECT_IS_TOP_LEVEL})
@@ -17,6 +17,27 @@ endif()
 option(MAGMA_METAL "Build the Metal backend (macOS with Clang)" ${_magma_metal_default})
 if(MAGMA_METAL)
   enable_language(OBJCXX)
+endif()
+# The Vulkan backend loads the Vulkan library when it starts, so building it needs no Vulkan SDK.
+# Vulkan on macOS would need MoltenVK, and Metal replaces it there.
+if(NOT APPLE)
+  set(_magma_vulkan_default ON)
+else()
+  set(_magma_vulkan_default OFF)
+endif()
+option(MAGMA_VULKAN "Build the Vulkan backend" ${_magma_vulkan_default})
+if(WIN32)
+  set(_magma_d3d12_default ON)
+else()
+  set(_magma_d3d12_default OFF)
+endif()
+option(MAGMA_D3D12 "Build the Direct3D 12 backend (Windows only)" ${_magma_d3d12_default})
+if(MAGMA_D3D12 AND NOT WIN32)
+  message(FATAL_ERROR "MAGMA_D3D12 needs Windows.")
+endif()
+if(MAGMA_VULKAN)
+  # volk is a C file.
+  enable_language(C)
 endif()
 set(MAGMA_SDL "bundled" CACHE STRING
   "Where SDL 3 comes from: bundled (built from the pinned release) or system (find_package)")

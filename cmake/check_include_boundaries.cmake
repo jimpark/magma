@@ -1,13 +1,13 @@
 # Fails when Magma reaches outside itself, or when the umbrella header is incomplete:
 #   - a quoted include with a directory must be a magma/ or basalt/ header;
-#   - a public header may not include SDL or Blend2D, which are private dependencies;
+#   - a public header may not include SDL, Blend2D or a graphics API, which are private dependencies;
 #   - magma/magma.h must include every other public header.
 # Usage: cmake -DMAGMA_SOURCE_DIR=<repo> -P <this>
 cmake_minimum_required(VERSION 3.25)
 
 set(_errors "")
 set(_include_regex "^[ \t]*#[ \t]*include[ \t]*\"([^\"]+)\"")
-set(_private_regex "^[ \t]*#[ \t]*include[ \t]*<((SDL3|blend2d)/[^>]+)>")
+set(_private_regex "^[ \t]*#[ \t]*include[ \t]*<((SDL3|blend2d|vulkan)/[^>]+|volk\\.h|d3d12\\.h|d3dcompiler\\.h|dxgi[0-9_]*\\.h|windows\\.h)>")
 
 file(GLOB_RECURSE _files "${MAGMA_SOURCE_DIR}/include/*" "${MAGMA_SOURCE_DIR}/src/*")
 foreach(_file IN LISTS _files)

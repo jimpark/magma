@@ -80,6 +80,20 @@ auto gpu_tolerance(edges kind) -> magma::test::golden_tolerance {
              : magma::test::golden_tolerance{.outlier_fraction = 0.15, .outlier_channel = 36};
 }
 
+auto backend_name(magma::backend backend) -> std::string_view {
+  switch (backend) {
+  case magma::backend::raster:
+    return "raster";
+  case magma::backend::metal:
+    return "metal";
+  case magma::backend::vulkan:
+    return "vulkan";
+  case magma::backend::d3d12:
+    return "d3d12";
+  }
+  return "unknown";
+}
+
 // A renderer for `preference`. Skips the test when it asks for a GPU and the machine has none.
 auto make_renderer(backend_preference preference) -> magma::renderer {
   auto renderer = magma::renderer::create_offscreen(preference);
@@ -110,7 +124,8 @@ auto check_golden(std::string_view name, rendered const &result, edges kind = ed
   auto const compared =
       result.backend == magma::backend::raster
           ? magma::test::compare_with_golden(name, *result.frame)
-          : magma::test::compare_with_golden(name, *result.frame, gpu_tolerance(kind), "metal");
+          : magma::test::compare_with_golden(name, *result.frame, gpu_tolerance(kind),
+                                             backend_name(result.backend));
   INFO(compared.message);
   CHECK(compared.matched);
 }

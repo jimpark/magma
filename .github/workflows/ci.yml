@@ -37,6 +37,10 @@ jobs:
       - name: Install compiler
         if: matrix.toolchain.apt
         run: sudo apt-get update && sudo apt-get install -y ${{ matrix.toolchain.apt }}
+      # The runners have no GPU. Mesa's lavapipe is a software Vulkan device, and Windows has WARP.
+      - name: Install a software Vulkan driver
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libvulkan1 mesa-vulkan-drivers
       - name: Configure
         run: >
           cmake -S . -B .build/ci -G Ninja -C .build/sources/init.cmake
@@ -45,7 +49,11 @@ jobs:
       # -k 0 keeps going after a failed compile, so that one run reports every error.
       - name: Build
         run: cmake --build .build/ci --parallel -- -k 0
+      # The backends accept software devices only when these variables ask for them.
       - name: Test
+        env:
+          MAGMA_VULKAN_ALLOW_SOFTWARE: "1"
+          MAGMA_D3D12_ADAPTER: warp
         run: ctest --test-dir .build/ci --output-on-failure --no-tests=error
 
   sanitize:

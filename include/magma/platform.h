@@ -25,9 +25,11 @@ struct platform_error {
 
 // The drawing API a window is created for. It is fixed when the window is created.
 enum class graphics_api {
-  software, // Pixels are presented with `present_pixels`.
-  metal,    // `metal_layer` is available (macOS only).
-  opengl,   // `create_gl_context` is available.
+  software,   // Pixels are presented with `present_pixels`.
+  metal,      // `metal_layer` is available (macOS only).
+  opengl,     // `create_gl_context` is available.
+  vulkan,     // `vulkan_instance_extensions` and `create_vulkan_surface` are available.
+  direct3d12, // `win32_window_handle` is available (Windows only). The window keeps its surface.
 };
 
 struct window_config {
@@ -147,6 +149,18 @@ public:
   // A CAMetalLayer owned by the window, or null when the window is not a Metal
   // window or the platform has no Metal.
   [[nodiscard]] auto metal_layer(window_id window) -> void *;
+
+  // The instance extensions that Vulkan needs to make surfaces for windows. Empty when the
+  // platform cannot present Vulkan frames in windows.
+  [[nodiscard]] auto vulkan_instance_extensions() -> std::vector<std::string>;
+  // Makes a VkSurfaceKHR for a window created with `graphics_api::vulkan`. `instance` is a
+  // VkInstance. Destroy the surface with `destroy_vulkan_surface` before the instance and the
+  // window.
+  [[nodiscard]] auto create_vulkan_surface(window_id window, void *instance)
+      -> std::expected<std::uint64_t, platform_error>;
+  auto destroy_vulkan_surface(void *instance, std::uint64_t surface) -> void;
+  // The HWND of a window on Windows, or null on other platforms.
+  [[nodiscard]] auto win32_window_handle(window_id window) -> void *;
 
   // Creates the window's OpenGL context and makes it current. Calling it again
   // only makes the existing context current.

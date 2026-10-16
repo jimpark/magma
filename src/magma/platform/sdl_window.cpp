@@ -1,11 +1,33 @@
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "sdl_platform_internal.h"
 
 namespace magma {
+namespace {
+
+// A VkSurfaceKHR is a pointer on 64-bit platforms and an integer on 32-bit ones.
+template <class surface_handle> auto surface_to_integer(surface_handle surface) -> std::uint64_t {
+  if constexpr (std::is_pointer_v<surface_handle>) {
+    return reinterpret_cast<std::uintptr_t>(surface);
+  } else {
+    return surface;
+  }
+}
+
+template <class surface_handle> auto integer_to_surface(std::uint64_t surface) -> surface_handle {
+  if constexpr (std::is_pointer_v<surface_handle>) {
+    return reinterpret_cast<surface_handle>(static_cast<std::uintptr_t>(surface));
+  } else {
+    return surface;
+  }
+}
+
+} // namespace
 
 auto platform::create_window(window_config const &config)
     -> std::expected<window_id, platform_error> {
@@ -23,6 +45,11 @@ auto platform::create_window(window_config const &config)
     break;
   case graphics_api::opengl:
     flags |= SDL_WINDOW_OPENGL;
+    break;
+  case graphics_api::vulkan:
+    flags |= SDL_WINDOW_VULKAN;
+    break;
+  case graphics_api::direct3d12:
     break;
   }
   if (config.high_pixel_density) {
@@ -222,6 +249,52 @@ auto platform::metal_layer(window_id window) -> void * {
     view = impl_->metal_views.emplace(window, sdl_metal_view_handle{created}).first;
   }
   return SDL_Metal_GetLayer(view->second.get());
+}
+
+auto platform::vulkan_instance_extensions() -> std::vector<std::string> {
+  auto count = Uint32{0};
+  auto const *const names = SDL_Vulkan_GetInstanceExtensions(&count);
+  auto result = std::vector<std::string>{};
+  for (auto index = Uint32{0}; names != nullptr && index < count; ++index) {
+    result.emplace_back(names[index]);
+  }
+  return result;
+}
+
+auto platform::create_vulkan_surface(window_id window, void *instance)
+    -> std::expected<std::uint64_t, platform_error> {
+  auto const found = impl_->windows.find(window);
+  if (found == impl_->windows.end()) {
+    return std::unexpected(platform_error{"unknown window"});
+  }
+  if ((SDL_GetWindowFlags(found->second.get()) & SDL_WINDOW_VULKAN) == 0) {
+    return std::unexpected(platform_error{"window was not created for Vulkan"});
+  }
+  auto surface = VkSurfaceKHR{};
+  if (!SDL_Vulkan_CreateSurface(found->second.get(), static_cast<VkInstance>(instance), nullptr,
+                                &surface)) {
+    return std::unexpected(platform_error{SDL_GetError()});
+  }
+  return surface_to_integer(surface);
+}
+
+auto platform::destroy_vulkan_surface(void *instance, std::uint64_t surface) -> void {
+  SDL_Vulkan_DestroySurface(static_cast<VkInstance>(instance),
+                            integer_to_surface<VkSurfaceKHR>(surface), nullptr);
+}
+
+auto platform::win32_window_handle(window_id window) -> void * {
+#if defined(SDL_PLATFORM_WINDOWS)
+  auto const found = impl_->windows.find(window);
+  if (found == impl_->windows.end()) {
+    return nullptr;
+  }
+  return SDL_GetPointerProperty(SDL_GetWindowProperties(found->second.get()),
+                                SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+#else
+  (void)window;
+  return nullptr;
+#endif
 }
 
 auto platform::create_gl_context(window_id window) -> std::expected<void, platform_error> {

@@ -22,3 +22,16 @@ set(MAGMA_CATCH2_VERSION "3.16.0")
 set(MAGMA_CATCH2_URL
   "https://github.com/catchorg/Catch2/archive/refs/tags/v${MAGMA_CATCH2_VERSION}.tar.gz")
 set(MAGMA_CATCH2_SHA256 "0957cae5821b17ce07f0833aaa52b5137643a8382203221f363a8303c109af34")
+
+# The Vulkan backend. The three archives come from one Vulkan SDK release, so that volk matches the
+# headers. glslang compiles the GLSL shaders to SPIR-V at build time.
+set(MAGMA_VULKAN_SDK_VERSION "1.4.350.0")
+set(MAGMA_VULKAN_HEADERS_URL
+  "https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/vulkan-sdk-${MAGMA_VULKAN_SDK_VERSION}.tar.gz")
+set(MAGMA_VULKAN_HEADERS_SHA256 "70270d10bf2c1e074a06ee37a50b75d332993d1b80a1d9526eeed2da6d82ed22")
+set(MAGMA_VOLK_URL
+  "https://github.com/zeux/volk/archive/refs/tags/vulkan-sdk-${MAGMA_VULKAN_SDK_VERSION}.tar.gz")
+set(MAGMA_VOLK_SHA256 "a04f26f76e9a4f9acf936bd2c159f5c4c8348f8ebaf118ff72ba6a9637ad3e80")
+set(MAGMA_GLSLANG_URL
+  "https://github.com/KhronosGroup/glslang/archive/refs/tags/vulkan-sdk-${MAGMA_VULKAN_SDK_VERSION}.tar.gz")
+set(MAGMA_GLSLANG_SHA256 "a6885b1631fd77c89cd689b939cf2b3032c5ec13ee99250270d34bcad1efc10c")

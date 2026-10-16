@@ -54,10 +54,19 @@ auto make_gpu_backend(backend_preference preference, platform *platform, window_
   if (auto created = render::make_metal_backend(platform, window)) {
     return std::move(*created);
   }
-#else
+#endif
+#if defined(MAGMA_HAS_D3D12)
+  if (auto created = render::make_d3d12_backend(platform, window)) {
+    return std::move(*created);
+  }
+#endif
+#if defined(MAGMA_HAS_VULKAN)
+  if (auto created = render::make_vulkan_backend(platform, window)) {
+    return std::move(*created);
+  }
+#endif
   (void)platform;
   (void)window;
-#endif
   return nullptr;
 }
 
@@ -68,8 +77,19 @@ auto preferred_graphics_api(backend_preference preference) -> graphics_api {
   if (preference != backend_preference::raster_only) {
     return graphics_api::metal;
   }
-#else
-  (void)preference;
+#endif
+  if (preference == backend_preference::raster_only) {
+    return graphics_api::software;
+  }
+#if defined(MAGMA_HAS_D3D12)
+  if (render::d3d12_device_available()) {
+    return graphics_api::direct3d12;
+  }
+#endif
+#if defined(MAGMA_HAS_VULKAN)
+  if (render::vulkan_device_available()) {
+    return graphics_api::vulkan;
+  }
 #endif
   return graphics_api::software;
 }

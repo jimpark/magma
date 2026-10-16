@@ -22,7 +22,7 @@ frame, and turns the paint commands into pixels.
 The platform uses SDL 3. SDL is a private dependency: no public header includes it, and the
 application does not call SDL.
 
-The renderer has two backends:
+The renderer has these backends:
 
 - `raster` draws on the CPU with [Blend2D](https://blend2d.com) and shows the frame with
   `present_pixels`. It is the reference: the golden images come from it.
@@ -30,9 +30,15 @@ The renderer has two backends:
   glyph and image as one instanced quad, and its shader calculates the coverage of each pixel
   exactly. Glyphs come from an atlas that Blend2D fills, at quarter-pixel positions. A clip that
   is not axis-aligned and a layer with an opacity draw into an offscreen texture.
+- `vulkan` draws on the GPU with Vulkan, on Linux and Windows.
+- `d3d12` draws on the GPU with Direct3D 12, on Windows.
 
-Blend2D is a private dependency, and so is Metal. Vulkan and Direct3D 12 backends will follow.
-Create the window with the graphics API that `preferred_graphics_api` gives, so that the renderer
+The `vulkan` and `d3d12` backends use the same scene, glyph atlas and quad shader design as `metal`.
+Each has its own shader: GLSL that is compiled to SPIR-V at build time for Vulkan, and HLSL that is
+compiled when the backend starts for Direct3D 12. Each keeps the frame in an image, redraws the
+damaged areas and copies the image into the window.
+
+Blend2D is a private dependency, and so are the graphics APIs. Create the window with the graphics API that `preferred_graphics_api` gives, so that the renderer
 can use the GPU. With `backend_preference::automatic`, the renderer uses the GPU when it can, and
 `raster` when it cannot. `renderer::active_backend` tells which backend it uses.
 
@@ -52,6 +58,23 @@ starts. Without display sync, keystrokes reach the screen sooner, but slow scrol
 more variables change the layer for measurement: `MAGMA_METAL_VSYNC=0` turns display sync off, and
 `MAGMA_METAL_DRAWABLES` (`2` or `3`) sets the number of drawables. The default is three drawables. The Metal backend compiles its shaders when it starts, so the build does not need the
 Metal toolchain.
+
+The Vulkan and Direct3D 12 backends wait for the display (first-in first-out presentation, and
+`Present(1, 0)`). They cannot tell when a frame reaches the screen. `renderer::take_presentations`
+reports the time when the backend handed the frame to the window system. On Windows,
+`preferred_graphics_api` gives Direct3D 12 when a Direct3D 12 adapter is available, and Vulkan
+otherwise.
+
+A software device is not a GPU, and the CPU backend is faster than one. The Vulkan backend therefore
+refuses a CPU device, and the Direct3D 12 backend refuses WARP, unless an environment variable
+accepts it. The tests on computers without a GPU use these variables:
+
+| Variable | Effect |
+| -------- | ------ |
+| `MAGMA_VULKAN_ALLOW_SOFTWARE=1` | The Vulkan backend accepts a CPU device, for example Mesa's lavapipe. |
+| `MAGMA_D3D12_ADAPTER=warp` | The Direct3D 12 backend uses the WARP software adapter. |
+| `MAGMA_VULKAN_VALIDATION=1` | The Vulkan backend loads the Khronos validation layer, if it is installed. |
+| `MAGMA_D3D12_VALIDATION=1` | The Direct3D 12 backend enables the debug layer. |
 
 The application keeps its own event loop. `examples/event_loop.cpp` is a complete loop. A typical
 loop does these steps:
@@ -171,6 +194,8 @@ For other setups, build from source with one of the methods above.
 | `MAGMA_BUILD_EXAMPLES` | on when top level | Build the programs in `examples/`. |
 | `MAGMA_INSTALL` | on when top level | Add install rules and the CMake package. |
 | `MAGMA_METAL` | on for Clang on macOS | Build the Metal backend. It is written in Objective-C++, which GCC does not compile. |
+| `MAGMA_VULKAN` | on, except on macOS | Build the Vulkan backend. The backend loads the Vulkan library when it starts, so the build needs no Vulkan SDK. The build compiles the shaders with glslang, which it downloads. |
+| `MAGMA_D3D12` | on for Windows | Build the Direct3D 12 backend. |
 | `MAGMA_SDL` | `bundled` | `bundled` builds a static SDL from the pinned release. `system` uses an installed SDL 3.2 or later. |
 | `MAGMA_WARNINGS_AS_ERRORS` | on when top level | Treat warnings in Magma's sources as errors. |
 | `MAGMA_SANITIZE` | off | Address and undefined-behavior sanitizers on Clang and GCC. |
@@ -186,7 +211,8 @@ cmake -D MAGMA_SOURCES_DIR=.build/sources -P cmake/fetch_sources.cmake
 cmake --preset debug -C .build/sources/init.cmake
 ```
 
-The script also gets HarfBuzz, which Basalt needs. You can also set
+The script also gets HarfBuzz, which Basalt needs. The Vulkan headers, volk and glslang are pinned
+too. Their archives all come from one Vulkan SDK release. You can also set
 `FETCHCONTENT_SOURCE_DIR_<NAME>` to your own copy of each dependency.
 
 ## Tests
@@ -205,7 +231,7 @@ the CPU. For curves and text, 15 percent of the pixels can differ by up to 36 le
 changes curves into short lines that are a little inside the curve, and the GPU puts glyphs at
 quarter-pixel positions, so many edge pixels are different by a small quantity. Pixels inside
 shapes must agree. The files for GPU frames have the backend name in their names, for example
-`text-metal.png`. GPU frames never replace the golden images.
+`text-metal.png` or `text-vulkan.png`. GPU frames never replace the golden images.
 
 The GPU scene tests check how paint commands become GPU instances and batches. They do not need a
 GPU, so they run on every platform.

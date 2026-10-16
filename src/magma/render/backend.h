@@ -80,4 +80,24 @@ public:
 [[nodiscard]] auto metal_device_available() -> bool;
 #endif
 
+#if defined(MAGMA_HAS_VULKAN)
+// Draws with Vulkan. With a platform it presents in a surface of the window, which must have been
+// created with `graphics_api::vulkan`; without one it keeps the frame in an image only.
+[[nodiscard]] auto make_vulkan_backend(platform *platform, window_id window)
+    -> std::expected<std::unique_ptr<render_backend>, render_error>;
+// True when the computer has a Vulkan device that the backend accepts, so that the Vulkan
+// backend must start. A software device counts only when MAGMA_VULKAN_ALLOW_SOFTWARE is 1.
+[[nodiscard]] auto vulkan_device_available() -> bool;
+#endif
+
+#if defined(MAGMA_HAS_D3D12)
+// Draws with Direct3D 12. With a platform it presents in a swap chain of the window; without one
+// it keeps the frame in a texture only.
+[[nodiscard]] auto make_d3d12_backend(platform *platform, window_id window)
+    -> std::expected<std::unique_ptr<render_backend>, render_error>;
+// True when the computer has a Direct3D 12 device that the backend accepts, so that the Direct3D 12
+// backend must start. WARP counts only when MAGMA_D3D12_ADAPTER is `warp`.
+[[nodiscard]] auto d3d12_device_available() -> bool;
+#endif
+
 } // namespace magma::render
