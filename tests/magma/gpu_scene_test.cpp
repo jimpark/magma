@@ -3,12 +3,16 @@
 #include "basalt/paint.h"
 #include "basalt/text/font_manager.h"
 
+#include "magma/render/blend2d_painter.h"
 #include "magma/render/glyph_atlas.h"
 #include "magma/render/gpu_scene.h"
+
+#include <blend2d/blend2d.h>
 
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <memory>
 #include <numbers>
@@ -293,6 +297,47 @@ TEST_CASE("the atlas rasterizes a glyph once for each size and subpixel offset",
   CHECK(page.dirty.width > 0);
   atlas.clear_dirty();
   CHECK(atlas.pages()[0].dirty.width == 0);
+}
+
+TEST_CASE("an atlas bitmap of any width has the coverage of its outline", "[gpu]") {
+  auto const face = fonts().match({"Noto Sans", 700});
+  REQUIRE(face != nullptr);
+  auto const letter = face->glyph_for(U'R');
+  REQUIRE(letter.has_value());
+  auto atlas = glyph_atlas{};
+  // Blend2D draws A8 rows that are not a multiple of 4 bytes wrongly, so the width must not be one.
+  auto pixels_per_em = 100.0F;
+  auto const *placed = atlas.find(*face, *letter, pixels_per_em, 0, 0);
+  while (placed != nullptr && placed->width % 4 == 0 && pixels_per_em < 104) {
+    pixels_per_em += 1;
+    placed = atlas.find(*face, *letter, pixels_per_em, 0, 0);
+  }
+  REQUIRE(placed != nullptr);
+  REQUIRE(placed->width % 4 != 0);
+
+  auto expected = BLImage{};
+  REQUIRE(expected.create(placed->width, placed->height, BL_FORMAT_PRGB32) == BL_SUCCESS);
+  auto context = BLContext{expected};
+  context.clear_all();
+  auto const scale = static_cast<double>(pixels_per_em) / face->units_per_em();
+  context.set_transform(BLMatrix2D(scale, 0, 0, scale, -placed->left, -placed->top));
+  context.fill_path(magma::render::glyph_path(*face, *letter), BLRgba32(0xffffffffU));
+  context.end();
+  auto data = BLImageData{};
+  expected.get_data(&data);
+
+  auto const &page = atlas.pages()[placed->page];
+  auto different = 0;
+  for (auto y = 0; y < placed->height; ++y) {
+    auto const *const row = static_cast<std::uint8_t const *>(data.pixel_data) + y * data.stride;
+    for (auto x = 0; x < placed->width; ++x) {
+      auto const alpha = static_cast<int>(row[x * 4 + 3]);
+      auto const actual = static_cast<int>(page.pixels[static_cast<std::size_t>(
+          (placed->y + y) * atlas.page_size() + placed->x + x)]);
+      different += std::abs(actual - alpha) > 2 ? 1 : 0;
+    }
+  }
+  CHECK(different == 0);
 }
 
 TEST_CASE("the atlas starts over when it has more pages than its limit", "[gpu]") {

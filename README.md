@@ -45,10 +45,13 @@ The Metal backend keeps the frame in a texture, redraws the damaged areas and co
 into the window. To draw each frame from nothing into the window instead, set the environment
 variable `MAGMA_METAL_REDRAW=full` before you create the renderer. Then `needs_full_redraw` is
 always true, so send all of the paint commands on each frame. This mode is for comparing the two
-methods. Two more variables change the window's Metal layer, also for measurement:
-`MAGMA_METAL_DRAWABLES` (`2` or `3`) sets the number of drawables, and `MAGMA_METAL_VSYNC` (`0` or
-`1`) turns display sync off or on. Without them, the layer keeps three drawables and syncs to the
-display. The Metal backend compiles its shaders when it starts, so the build does not need the
+methods.
+
+The Metal layer does not sync to the display, so a frame reaches the screen soon after the GPU
+completes it. With display sync, the system shows a frame about two refreshes after it starts,
+which makes typing feel slow. Display pacing keeps the frames at the display's rate. Two more
+variables change the layer for measurement: `MAGMA_METAL_VSYNC=1` turns display sync on, and
+`MAGMA_METAL_DRAWABLES` (`2` or `3`) sets the number of drawables. The default is three drawables. The Metal backend compiles its shaders when it starts, so the build does not need the
 Metal toolchain.
 
 The application keeps its own event loop. `examples/event_loop.cpp` is a complete loop. A typical

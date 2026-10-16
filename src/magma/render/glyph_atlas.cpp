@@ -117,9 +117,12 @@ auto glyph_atlas::find(basalt::text::font_face const &face, std::uint32_t glyph,
   placed->left = left;
   placed->top = top;
 
+  // Blend2D 0.21 draws wrong coverage into an A8 image when a row is not a multiple of 4 bytes,
+  // so the bitmap is made wider and only its first `width` columns are copied.
+  auto const padded_width = (placed->width + 15) / 16 * 16;
   auto bitmap = BLImage{};
   auto context = BLContext{};
-  if (bitmap.create(placed->width, placed->height, BL_FORMAT_A8) != BL_SUCCESS ||
+  if (bitmap.create(padded_width, placed->height, BL_FORMAT_A8) != BL_SUCCESS ||
       context.begin(bitmap) != BL_SUCCESS) {
     return nullptr;
   }
