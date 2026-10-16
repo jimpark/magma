@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include "basalt/paint.h"
 #include "basalt/text/font_manager.h"
@@ -13,14 +14,19 @@
 #include <memory>
 #include <numbers>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "golden.h"
 
 // Each test renders a fixed list of paint commands and compares the frame with a stored image.
 // Together they use every paint command. Run with MAGMA_UPDATE_GOLDEN=1 to write the images.
+//
+// Each test runs twice: on the CPU, which made the golden images, and on the GPU backend when the
+// machine has one. GPU frames are compared with the same images, within a wider tolerance.
 
 using namespace basalt;
+using magma::backend_preference;
 
 namespace {
 
@@ -58,20 +64,55 @@ auto append(paint_commands &commands, paint_commands const &more) -> void {
   commands.insert(commands.end(), more.begin(), more.end());
 }
 
-auto render(size viewport, float scale, paint_commands const &commands) -> raster_image_ptr {
-  auto renderer = magma::renderer::create_offscreen();
-  renderer.set_metrics(viewport, scale);
-  auto const rendered = renderer.render(commands, {}, white);
-  REQUIRE(rendered.has_value());
-  auto frame = renderer.read_frame();
-  REQUIRE(frame != nullptr);
-  return frame;
+// Which edges a scene has, which sets how far a GPU frame may be from the CPU reference.
+enum class edges {
+  // Straight edges and images: the GPU computes the same coverage as the CPU.
+  straight,
+  // Curves and text. The CPU flattens curves into short lines inside the curve, and the GPU puts
+  // glyphs on quarter pixels, so many pixels on an edge differ, by up to about an eighth of
+  // their coverage. Pixels inside shapes must still match.
+  curved,
+};
+
+auto gpu_tolerance(edges kind) -> magma::test::golden_tolerance {
+  return kind == edges::straight
+             ? magma::test::golden_tolerance{}
+             : magma::test::golden_tolerance{.outlier_fraction = 0.15, .outlier_channel = 36};
 }
 
-auto check_golden(std::string_view name, raster_image_ptr const &frame) -> void {
-  auto const result = magma::test::compare_with_golden(name, *frame);
-  INFO(result.message);
-  CHECK(result.matched);
+// A renderer for `preference`. Skips the test when it asks for a GPU and the machine has none.
+auto make_renderer(backend_preference preference) -> magma::renderer {
+  auto renderer = magma::renderer::create_offscreen(preference);
+  if (preference != backend_preference::raster_only &&
+      renderer.active_backend() == magma::backend::raster) {
+    SKIP("this machine has no GPU backend");
+  }
+  return renderer;
+}
+
+struct rendered {
+  raster_image_ptr frame;
+  magma::backend backend = magma::backend::raster;
+};
+
+auto render(backend_preference preference, size viewport, float scale,
+            paint_commands const &commands) -> rendered {
+  auto renderer = make_renderer(preference);
+  renderer.set_metrics(viewport, scale);
+  REQUIRE(renderer.render(commands, {}, white).has_value());
+  auto frame = renderer.read_frame();
+  REQUIRE(frame != nullptr);
+  return {std::move(frame), renderer.active_backend()};
+}
+
+auto check_golden(std::string_view name, rendered const &result, edges kind = edges::straight)
+    -> void {
+  auto const compared =
+      result.backend == magma::backend::raster
+          ? magma::test::compare_with_golden(name, *result.frame)
+          : magma::test::compare_with_golden(name, *result.frame, gpu_tolerance(kind), "metal");
+  INFO(compared.message);
+  CHECK(compared.matched);
 }
 
 auto rect_scene() -> paint_commands {
@@ -89,10 +130,12 @@ auto rect_scene() -> paint_commands {
 } // namespace
 
 TEST_CASE("filled and stroked rects match their golden image", "[render][golden]") {
-  check_golden("rects", render({96, 64}, 1, rect_scene()));
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
+  check_golden("rects", render(preference, {96, 64}, 1, rect_scene()));
 }
 
 TEST_CASE("rounded rects match their golden image", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   auto const commands = paint_commands{
       fill_rounded_rect_command{{{8, 8}, {36, 24}}, {120, 60, 200, 255}, 6},
       stroke_rounded_rect_command{{{52, 8}, {36, 24}}, {230, 130, 20, 255}, 6, 2},
@@ -100,10 +143,11 @@ TEST_CASE("rounded rects match their golden image", "[render][golden]") {
       fill_rounded_rect_command{{{8, 38}, {36, 18}}, green, 50},
       stroke_rounded_rect_command{{{52.5F, 38.5F}, {35, 17}}, black, 0, 1},
   };
-  check_golden("rounded_rects", render({96, 64}, 1, commands));
+  check_golden("rounded_rects", render(preference, {96, 64}, 1, commands), edges::curved);
 }
 
 TEST_CASE("lines match their golden image", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   auto const commands = paint_commands{
       line_command{{8, 8.5F}, {88, 8.5F}, black, 1},
       line_command{{8, 16}, {88, 16}, blue, 2},
@@ -112,19 +156,21 @@ TEST_CASE("lines match their golden image", "[render][golden]") {
       // Width zero is a hairline.
       line_command{{48.5F, 20}, {48.5F, 60}, black, 0},
   };
-  check_golden("lines", render({96, 64}, 1, commands));
+  check_golden("lines", render(preference, {96, 64}, 1, commands));
 }
 
 TEST_CASE("text matches its golden image, in each weight", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   auto commands = paint_commands{};
   append(commands, words("Magma", {6, 22}, 18, black));
   append(commands, words("Magma", {80, 22}, 18, black, font_weight::bold));
   append(commands, words("The quick brown fox jumps", {6, 42}, 11, blue));
   append(commands, words("over the lazy dog.", {6, 58}, 11, red, font_weight::semibold));
-  check_golden("text", render({156, 64}, 1, commands));
+  check_golden("text", render(preference, {156, 64}, 1, commands), edges::curved);
 }
 
 TEST_CASE("images match their golden image when scaled", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   // Four colors on the top rows and a fading alpha on the bottom rows.
   auto pixels = std::vector<std::uint8_t>{
       255, 0,   0, 255, 0,   255, 0,   255, 0,   0,   255, 255, 0,   0,   0, 255, //
@@ -140,10 +186,11 @@ TEST_CASE("images match their golden image when scaled", "[render][golden]") {
       draw_image_command{{{48, 20}, {40, 10}}, image},
       draw_image_command{{{48, 40}, {40, 10}}, nullptr},
   };
-  check_golden("images", render({96, 48}, 1, commands));
+  check_golden("images", render(preference, {96, 48}, 1, commands));
 }
 
 TEST_CASE("clips nest and unbalanced commands are tolerated", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   auto const commands = paint_commands{
       push_clip_command{{{8, 8}, {48, 32}}},
       fill_rect_command{{{0, 0}, {96, 64}}, {230, 230, 230, 255}},
@@ -159,10 +206,11 @@ TEST_CASE("clips nest and unbalanced commands are tolerated", "[render][golden]"
       push_clip_command{{{70, 44}, {10, 10}}},
       fill_rect_command{{{60, 40}, {30, 20}}, black},
   };
-  check_golden("clips", render({96, 64}, 1, commands));
+  check_golden("clips", render(preference, {96, 64}, 1, commands));
 }
 
 TEST_CASE("transforms and clips inside a rotation match their golden image", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   constexpr auto quarter_turn = std::numbers::pi_v<float> / 6;
   auto const commands = paint_commands{
       push_transform_command{affine_transform::translation(4, 4)},
@@ -184,10 +232,11 @@ TEST_CASE("transforms and clips inside a rotation match their golden image", "[r
       pop_clip_command{},
       pop_transform_command{},
   };
-  check_golden("transforms", render({96, 64}, 1, commands));
+  check_golden("transforms", render(preference, {96, 64}, 1, commands));
 }
 
 TEST_CASE("layers apply their opacity to the group as a whole", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   auto const overlapping = [](float x) {
     return paint_commands{
         fill_rect_command{{{x, 8}, {24, 24}}, blue},
@@ -220,16 +269,18 @@ TEST_CASE("layers apply their opacity to the group as a whole", "[render][golden
   commands.emplace_back(fill_rect_command{{{76, 50}, {16, 10}}, red});
   commands.emplace_back(end_layer_command{});
   commands.emplace_back(pop_clip_command{});
-  check_golden("layers", render({96, 64}, 1, commands));
+  check_golden("layers", render(preference, {96, 64}, 1, commands));
 }
 
 TEST_CASE("a frame at scale 2 matches its golden image", "[render][golden]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   auto commands = rect_scene();
   append(commands, words("Ag", {60, 24}, 14, black));
-  check_golden("rects_scale_2", render({96, 64}, 2, commands));
+  check_golden("rects_scale_2", render(preference, {96, 64}, 2, commands), edges::curved);
 }
 
 TEST_CASE("glyphs that overlap in one run are both drawn", "[render]") {
+  auto const preference = GENERATE(backend_preference::raster_only, backend_preference::automatic);
   // A run is filled as one path, so where two glyphs overlap they must not cancel out.
   auto const face = fonts().match({"Noto Sans"});
   REQUIRE(face != nullptr);
@@ -241,7 +292,7 @@ TEST_CASE("glyphs that overlap in one run are both drawn", "[render]") {
       .size = 80,
       .glyphs = {{.id = *stem, .position = {0, 0}}, {.id = *stem, .position = {2, 0}}},
   });
-  auto renderer = magma::renderer::create_offscreen();
+  auto renderer = make_renderer(preference);
   renderer.set_metrics({40, 90}, 1);
   REQUIRE(renderer.render({draw_glyph_run_command{{10, 85}, run, black}}, {}, white).has_value());
   auto dark = 0;

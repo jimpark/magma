@@ -30,15 +30,6 @@ auto thread_count(std::span<pixel_rect const> areas) -> std::uint32_t {
   return std::min(most_threads, std::thread::hardware_concurrency());
 }
 
-auto unpremultiply(std::uint32_t pixel) -> basalt::rgba {
-  auto const alpha = pixel >> 24;
-  auto const channel = [alpha](std::uint32_t value) {
-    return static_cast<std::uint8_t>(alpha == 0 ? 0 : (value * 255 + alpha / 2) / alpha);
-  };
-  return {channel(pixel >> 16 & 0xff), channel(pixel >> 8 & 0xff), channel(pixel & 0xff),
-          static_cast<std::uint8_t>(alpha)};
-}
-
 class raster_backend final : public render_backend {
 public:
   raster_backend(platform *platform, window_id window) : platform_(platform), window_(window) {}

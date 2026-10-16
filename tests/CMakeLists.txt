@@ -2,6 +2,7 @@ add_executable(magma_tests
   magma/frame_scheduler_test.cpp
   magma/golden.cpp
   magma/golden.h
+  magma/gpu_scene_test.cpp
   magma/platform_test.cpp
   magma/render_golden_test.cpp
   magma/renderer_test.cpp)
@@ -13,6 +14,11 @@ target_compile_definitions(magma_tests PRIVATE
   MAGMA_TEST_FONT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/fonts"
   MAGMA_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/golden"
   MAGMA_GOLDEN_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/golden")
+# The GPU tests use private headers, which they include as magma/render/<name>.h.
+target_include_directories(magma_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
+if(MAGMA_METAL)
+  target_compile_definitions(magma_tests PRIVATE MAGMA_HAS_METAL)
+endif()
 catch_discover_tests(magma_tests)
 
 add_test(NAME include_boundaries

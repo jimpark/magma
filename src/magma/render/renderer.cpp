@@ -33,8 +33,35 @@ struct presentation_log {
 
 } // namespace
 
+namespace {
+
+// A GPU backend for `preference`, or null when it asks for none or none can be created.
+auto make_gpu_backend(backend_preference preference, platform *platform, window_id window)
+    -> std::unique_ptr<render::render_backend> {
+  if (preference == backend_preference::raster_only) {
+    return nullptr;
+  }
+#if defined(MAGMA_HAS_METAL)
+  if (auto created = render::make_metal_backend(platform, window)) {
+    return std::move(*created);
+  }
+#else
+  (void)platform;
+  (void)window;
+#endif
+  return nullptr;
+}
+
+} // namespace
+
 auto preferred_graphics_api(backend_preference preference) -> graphics_api {
+#if defined(MAGMA_HAS_METAL)
+  if (preference != backend_preference::raster_only) {
+    return graphics_api::metal;
+  }
+#else
   (void)preference;
+#endif
   return graphics_api::software;
 }
 
@@ -61,7 +88,6 @@ renderer::~renderer() = default;
 
 auto renderer::create(platform &platform, window_id window, backend_preference preference)
     -> std::expected<renderer, render_error> {
-  (void)preference;
   auto state = std::make_unique<impl>();
   if (auto const size = platform.window_size(window); !size) {
     return std::unexpected(render_error{"unknown window"});
@@ -69,13 +95,19 @@ auto renderer::create(platform &platform, window_id window, backend_preference p
     state->viewport = *size;
   }
   state->scale = std::max(platform.display_scale(window).value_or(1.0F), minimum_scale);
-  state->backend = render::make_raster_backend(&platform, window);
+  state->backend = make_gpu_backend(preference, &platform, window);
+  if (state->backend == nullptr) {
+    state->backend = render::make_raster_backend(&platform, window);
+  }
   return renderer{std::move(state)};
 }
 
-auto renderer::create_offscreen() -> renderer {
+auto renderer::create_offscreen(backend_preference preference) -> renderer {
   auto state = std::make_unique<impl>();
-  state->backend = render::make_raster_backend(nullptr, 0);
+  state->backend = make_gpu_backend(preference, nullptr, 0);
+  if (state->backend == nullptr) {
+    state->backend = render::make_raster_backend(nullptr, 0);
+  }
   return renderer{std::move(state)};
 }
 
@@ -142,7 +174,7 @@ auto renderer::render(basalt::paint_commands const &commands, std::span<basalt::
                                       .scale = impl_->scale,
                                       .clear = clear});
   if (result) {
-    impl_->full_redraw = false;
+    impl_->full_redraw = !impl_->backend->retains_frame();
     impl_->frame = frame;
     if (log != nullptr && !reported) {
       log->add({frame, platform::event_clock_now()});

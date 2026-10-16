@@ -31,6 +31,7 @@ struct render_error {
 
 enum class backend {
   raster, // Blend2D on the CPU, presented with `platform::present_pixels`.
+  metal,  // Metal on the GPU (macOS only).
 };
 
 enum class backend_preference {
@@ -46,6 +47,11 @@ enum class backend_preference {
 //
 // Commands are in layout pixels. The renderer keeps a frame of `viewport * scale` device pixels,
 // so a frame redraws only the damaged rects and presents the rest unchanged.
+//
+// The Metal backend can instead draw each frame from nothing into the window. Set the environment
+// variable MAGMA_METAL_REDRAW to `full` before the renderer is created to use it. Then
+// `needs_full_redraw` is always true, and `read_pixel` and `read_frame` return nothing for a
+// window. The default, `retained`, keeps the frame as described above.
 class renderer {
 public:
   renderer(renderer const &) = delete;
@@ -60,8 +66,11 @@ public:
                                    backend_preference preference = backend_preference::automatic)
       -> std::expected<renderer, render_error>;
 
-  // Renders into memory only, for tests and tools. Set the metrics before the first frame.
-  [[nodiscard]] static auto create_offscreen() -> renderer;
+  // Renders into memory only, for tests and tools. Set the metrics before the first frame. The
+  // default draws on the CPU, which gives the reference image; `automatic` uses the GPU when it
+  // can.
+  [[nodiscard]] static auto
+  create_offscreen(backend_preference preference = backend_preference::raster_only) -> renderer;
 
   [[nodiscard]] auto active_backend() const -> backend;
 

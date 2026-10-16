@@ -18,8 +18,8 @@ holds the rules for changing it.
 | ---- | -------- |
 | `include/magma/` | Public headers. `magma/magma.h` includes all of them. |
 | `src/magma/platform/` | The SDL 3 platform. `sdl_platform_internal.h` is private. |
-| `src/magma/render/` | The renderer. `backend.h` is the interface each backend implements. `blend2d_painter` replays paint commands with Blend2D. |
-| `tests/magma/` | Catch2 tests. The platform tests use SDL's dummy video driver. `golden.h` compares frames with golden images. |
+| `src/magma/render/` | The renderer. `backend.h` is the interface each backend implements. `blend2d_painter` replays paint commands with Blend2D. `gpu_scene` turns paint commands into instances and passes for every GPU backend, and `glyph_atlas` rasterizes their glyphs with Blend2D. `metal_backend.mm` is the Metal backend and its shader. |
+| `tests/magma/` | Catch2 tests. The platform tests use SDL's dummy video driver. `golden.h` compares frames with golden images. `gpu_scene_test.cpp` tests the GPU scene without a GPU. |
 | `tests/data/golden/` | Golden images for the render tests. |
 | `tests/data/fonts/` | Noto Sans, a variable font, for the text in the render tests and benchmarks. |
 | `benchmarks/` | Catch2 benchmarks that replay a page of an article. |
@@ -47,6 +47,10 @@ holds the rules for changing it.
   alter the images, write them again with `MAGMA_UPDATE_GOLDEN=1`, examine each one, and say why
   they changed in the commit message.
 - A new paint command needs a golden-image test.
+- The golden images come from the raster backend. GPU backends are compared with the same images
+  and never write them. Do not widen the GPU tolerance to make a test pass. Find the cause first.
+- The GPU shaders and `gpu_instance` share one layout. Change them together.
+- The Metal backend is Objective-C++ with ARC. Keep Objective-C out of every other file.
 
 ## Commands
 

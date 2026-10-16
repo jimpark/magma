@@ -21,14 +21,31 @@ frame, and turns the paint commands into pixels.
 The platform uses SDL 3. SDL is a private dependency: no public header includes it, and the
 application does not call SDL.
 
-The renderer has one backend now: `raster`. It draws on the CPU with
-[Blend2D](https://blend2d.com) and shows the frame with `present_pixels`. Blend2D is a private
-dependency too. GPU backends for Metal, Vulkan and Direct3D 12 will follow. Create the window with
-the graphics API that `preferred_graphics_api` gives, so that the renderer can use the best backend.
+The renderer has two backends:
 
-The raster backend draws text from the glyph outlines that Basalt gives (`font_face::outline`), so
-variable fonts show their correct weight. It draws large areas on up to four threads and small
-areas on one thread. Before each frame, it skips the commands that are outside the damaged areas.
+- `raster` draws on the CPU with [Blend2D](https://blend2d.com) and shows the frame with
+  `present_pixels`. It is the reference: the golden images come from it.
+- `metal` draws on the GPU with Metal, on macOS. It draws each rect, rounded rect, stroke, line,
+  glyph and image as one instanced quad, and its shader calculates the coverage of each pixel
+  exactly. Glyphs come from an atlas that Blend2D fills, at quarter-pixel positions. A clip that
+  is not axis-aligned and a layer with an opacity draw into an offscreen texture.
+
+Blend2D is a private dependency, and so is Metal. Vulkan and Direct3D 12 backends will follow.
+Create the window with the graphics API that `preferred_graphics_api` gives, so that the renderer
+can use the GPU. With `backend_preference::automatic`, the renderer uses the GPU when it can, and
+`raster` when it cannot. `renderer::active_backend` tells which backend it uses.
+
+Both backends draw text from the glyph outlines that Basalt gives (`font_face::outline`), so
+variable fonts show their correct weight. The raster backend draws large areas on up to four
+threads and small areas on one thread. Before each frame, both backends skip the commands that are
+outside the damaged areas.
+
+The Metal backend keeps the frame in a texture, redraws the damaged areas and copies the texture
+into the window. To draw each frame from nothing into the window instead, set the environment
+variable `MAGMA_METAL_REDRAW=full` before you create the renderer. Then `needs_full_redraw` is
+always true, so send all of the paint commands on each frame. This mode is for comparing the two
+methods. The Metal backend compiles its shaders when it starts, so the build does not need the
+Metal toolchain.
 
 The application keeps its own event loop. A typical loop does these steps:
 
@@ -138,6 +155,7 @@ For other setups, build from source with one of the methods above.
 | `MAGMA_BUILD_TESTS` | on when top level | Build the Catch2 test suite. |
 | `MAGMA_BUILD_BENCHMARKS` | off | Build the Catch2 benchmarks. The `benchmark` preset sets it. |
 | `MAGMA_INSTALL` | on when top level | Add install rules and the CMake package. |
+| `MAGMA_METAL` | on for Clang on macOS | Build the Metal backend. It is written in Objective-C++, which GCC does not compile. |
 | `MAGMA_SDL` | `bundled` | `bundled` builds a static SDL from the pinned release. `system` uses an installed SDL 3.2 or later. |
 | `MAGMA_WARNINGS_AS_ERRORS` | on when top level | Treat warnings in Magma's sources as errors. |
 | `MAGMA_SANITIZE` | off | Address and undefined-behavior sanitizers on Clang and GCC. |
@@ -166,6 +184,17 @@ in `tests/data/golden`. Together the lists use every paint command. Each color c
 3 levels, and 0.2 percent of the pixels can differ by more. When a test fails, it writes the frame
 and an image of the differences to `.build/<preset>/tests/golden` and gives their names.
 
+Each golden-image test also runs on the GPU backend, if the computer has one, and compares the GPU
+frame with the same image. Scenes with only straight edges and images have the same tolerance as
+the CPU. For curves and text, 15 percent of the pixels can differ by up to 36 levels. Blend2D
+changes curves into short lines that are a little inside the curve, and the GPU puts glyphs at
+quarter-pixel positions, so many edge pixels are different by a small quantity. Pixels inside
+shapes must agree. The files for GPU frames have the backend name in their names, for example
+`text-metal.png`. GPU frames never replace the golden images.
+
+The GPU scene tests check how paint commands become GPU instances and batches. They do not need a
+GPU, so they run on every platform.
+
 To write new golden images, run the tests with `MAGMA_UPDATE_GOLDEN=1`. Examine each new image
 before you commit it.
 
@@ -175,6 +204,11 @@ before you commit it.
 30 lines of text, a code block and some rules, in a window of 1200 by 800 layout pixels. It
 measures a full redraw, as when the page scrolls, one line, as when you type, and the caret. It
 also measures the first frame of a new renderer, with empty caches.
+
+Each case runs on the CPU and, if the computer has one, on the GPU. A GPU case waits until the GPU
+has finished the frame and reads back one pixel. For small areas, this round trip is most of the
+time, so these numbers do not show how a window performs. To compare the backends in a window, use
+the frame statistics of the application.
 
 ## License
 

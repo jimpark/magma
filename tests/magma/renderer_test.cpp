@@ -1,9 +1,14 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 #include "basalt/paint.h"
 
 #include "magma/platform.h"
 #include "magma/renderer.h"
+
+#if defined(MAGMA_HAS_METAL)
+#include "magma/render/backend.h"
+#endif
 
 #include <SDL3/SDL.h>
 
@@ -17,6 +22,7 @@
 #include <vector>
 
 using namespace basalt;
+using magma::backend_preference;
 
 namespace {
 
@@ -28,10 +34,22 @@ auto fill(rgba color) -> paint_commands {
   return {fill_rect_command{{{0, 0}, {1000, 1000}}, color}};
 }
 
-auto offscreen(size viewport, float scale = 1) -> magma::renderer {
-  auto renderer = magma::renderer::create_offscreen();
+// An offscreen renderer for `preference`. Skips the test when it asks for a GPU and the machine
+// has none.
+auto offscreen(size viewport, float scale = 1,
+               backend_preference preference = backend_preference::raster_only) -> magma::renderer {
+  auto renderer = magma::renderer::create_offscreen(preference);
+  if (preference != backend_preference::raster_only &&
+      renderer.active_backend() == magma::backend::raster) {
+    SKIP("this machine has no GPU backend");
+  }
   renderer.set_metrics(viewport, scale);
   return renderer;
+}
+
+// The CPU backend, then the GPU backend when the machine has one.
+auto each_backend() -> backend_preference {
+  return GENERATE(backend_preference::raster_only, backend_preference::automatic);
 }
 
 auto make_platform() -> magma::platform {
@@ -67,7 +85,8 @@ TEST_CASE("the frame is the viewport times the scale, in whole device pixels", "
 }
 
 TEST_CASE("a full redraw ignores the damage and clears to the clear color", "[render]") {
-  auto renderer = offscreen({20, 10});
+  auto const preference = each_backend();
+  auto renderer = offscreen({20, 10}, 1, preference);
   auto const damage = std::array{rect{{0, 0}, {1, 1}}};
   auto const commands = paint_commands{fill_rect_command{{{10, 0}, {10, 10}}, blue}};
   REQUIRE(renderer.render(commands, damage, red).has_value());
@@ -78,7 +97,8 @@ TEST_CASE("a full redraw ignores the damage and clears to the clear color", "[re
 }
 
 TEST_CASE("without damage or a pending full redraw nothing is drawn", "[render]") {
-  auto renderer = offscreen({20, 10});
+  auto const preference = each_backend();
+  auto renderer = offscreen({20, 10}, 1, preference);
   REQUIRE(renderer.render(fill(red), {}, white).has_value());
   REQUIRE(renderer.render(fill(blue), {}, white).has_value());
   CHECK(renderer.read_pixel(5, 5) == red);
@@ -86,7 +106,8 @@ TEST_CASE("without damage or a pending full redraw nothing is drawn", "[render]"
 }
 
 TEST_CASE("a partial redraw changes only the damaged area", "[render]") {
-  auto renderer = offscreen({20, 10});
+  auto const preference = each_backend();
+  auto renderer = offscreen({20, 10}, 1, preference);
   REQUIRE(renderer.render(fill(red), {}, white).has_value());
   auto const damage = std::array{rect{{2, 2}, {3, 3}}, rect{{12, 6}, {2, 2}}};
   REQUIRE(renderer.render(fill(blue), damage, white).has_value());
@@ -100,7 +121,7 @@ TEST_CASE("a partial redraw changes only the damaged area", "[render]") {
 }
 
 TEST_CASE("damage is rounded out to whole device pixels", "[render]") {
-  auto renderer = offscreen({20, 10}, 2);
+  auto renderer = offscreen({20, 10}, 2, each_backend());
   REQUIRE(renderer.render(fill(red), {}, white).has_value());
   auto const damage = std::array{rect{{1.3F, 1.3F}, {1, 1}}};
   REQUIRE(renderer.render({}, damage, white).has_value());
@@ -112,7 +133,8 @@ TEST_CASE("damage is rounded out to whole device pixels", "[render]") {
 }
 
 TEST_CASE("changing the device size or scale requests a full redraw", "[render]") {
-  auto renderer = offscreen({20, 10});
+  auto const preference = each_backend();
+  auto renderer = offscreen({20, 10}, 1, preference);
   REQUIRE(renderer.render(fill(red), {}, white).has_value());
   renderer.set_metrics({20, 10}, 1);
   CHECK_FALSE(renderer.needs_full_redraw());
@@ -127,7 +149,8 @@ TEST_CASE("changing the device size or scale requests a full redraw", "[render]"
 }
 
 TEST_CASE("an empty viewport renders nothing", "[render]") {
-  auto renderer = offscreen({0, 10});
+  auto const preference = each_backend();
+  auto renderer = offscreen({0, 10}, 1, preference);
   REQUIRE(renderer.render(fill(red), {}, white).has_value());
   CHECK(renderer.last_frame() == 0);
 }
@@ -135,12 +158,13 @@ TEST_CASE("an empty viewport renders nothing", "[render]") {
 TEST_CASE("a window renderer presents its frame in the window", "[render][platform]") {
   auto platform = make_platform();
   auto config = magma::window_config{};
-  config.graphics = magma::preferred_graphics_api(magma::backend_preference::automatic);
+  // The test reads the window's software surface, which only the CPU backend draws into.
+  config.graphics = magma::preferred_graphics_api(backend_preference::raster_only);
   config.size = {16, 8};
   auto const window = platform.create_window(config);
   REQUIRE(window.has_value());
 
-  auto renderer = magma::renderer::create(platform, *window);
+  auto renderer = magma::renderer::create(platform, *window, backend_preference::raster_only);
   REQUIRE(renderer.has_value());
   CHECK(renderer->pixel_size() == size{16, 8});
   REQUIRE(renderer->render(fill(red), {}, white).has_value());
@@ -156,6 +180,30 @@ TEST_CASE("a window renderer presents its frame in the window", "[render][platfo
   };
   CHECK(color_at(1, 1) == blue);
   CHECK(color_at(10, 5) == red);
+}
+
+TEST_CASE("a window for the GPU uses the platform's graphics API", "[render]") {
+  CHECK(magma::preferred_graphics_api(backend_preference::raster_only) ==
+        magma::graphics_api::software);
+#if defined(MAGMA_HAS_METAL)
+  CHECK(magma::preferred_graphics_api(backend_preference::automatic) == magma::graphics_api::metal);
+#else
+  CHECK(magma::preferred_graphics_api(backend_preference::automatic) ==
+        magma::graphics_api::software);
+#endif
+}
+
+TEST_CASE("the GPU backend starts wherever the computer has a GPU", "[render]") {
+  // Otherwise a fault such as a shader that does not compile would only skip the GPU tests.
+#if defined(MAGMA_HAS_METAL)
+  if (!magma::render::metal_device_available()) {
+    SKIP("this computer has no Metal device");
+  }
+  auto const renderer = magma::renderer::create_offscreen(backend_preference::automatic);
+  CHECK(renderer.active_backend() == magma::backend::metal);
+#else
+  SKIP("Magma has no GPU backend for this platform yet");
+#endif
 }
 
 TEST_CASE("a renderer for an unknown window is refused", "[render][platform]") {
@@ -189,6 +237,7 @@ TEST_CASE("presentations are recorded only while tracking is on", "[render]") {
 }
 
 TEST_CASE("a large frame drawn at once matches the same frame drawn in strips", "[render]") {
+  auto const preference = each_backend();
   // Large areas are drawn on several threads and small ones on one. Clipping to a strip can
   // change the rounding of a pixel, but by no more than 2 levels.
   auto commands = paint_commands{};
@@ -198,10 +247,10 @@ TEST_CASE("a large frame drawn at once matches the same frame drawn in strips", 
         {{offset, offset * 0.6F}, {180, 90}}, {static_cast<std::uint8_t>(i * 6), 90, 160, 200}, 9});
     commands.emplace_back(line_command{{0, offset}, {1000, 700 - offset}, {20, 20, 20, 255}, 1.5F});
   }
-  auto whole = offscreen({1000, 700});
+  auto whole = offscreen({1000, 700}, 1, preference);
   REQUIRE(whole.render(commands, {}, white).has_value());
 
-  auto strips = offscreen({1000, 700});
+  auto strips = offscreen({1000, 700}, 1, preference);
   REQUIRE(strips.render({}, {}, white).has_value());
   auto damage = std::vector<rect>{};
   for (auto y = 0; y < 700; y += 50) {

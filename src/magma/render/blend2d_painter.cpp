@@ -282,6 +282,38 @@ private:
 
 } // namespace
 
+auto glyph_path(basalt::text::font_face const &face, std::uint32_t glyph) -> BLPath {
+  auto path = BLPath{};
+  auto const outline = face.outline(glyph, static_cast<float>(face.units_per_em()));
+  auto next = outline.points.begin();
+  auto const take = [&next] { return to_bl(*next++); };
+  for (auto const verb : outline.verbs) {
+    switch (verb) {
+    case basalt::text::outline_verb::move_to:
+      path.move_to(take());
+      break;
+    case basalt::text::outline_verb::line_to:
+      path.line_to(take());
+      break;
+    case basalt::text::outline_verb::quad_to: {
+      auto const control = take();
+      path.quad_to(control, take());
+      break;
+    }
+    case basalt::text::outline_verb::cubic_to: {
+      auto const first = take();
+      auto const second = take();
+      path.cubic_to(first, second, take());
+      break;
+    }
+    case basalt::text::outline_verb::close:
+      path.close();
+      break;
+    }
+  }
+  return path;
+}
+
 auto blend2d_painter::image_for(basalt::raster_image const &image) -> BLImage const & {
   if (auto const found = images_.find(image.id()); found != images_.end()) {
     return found->second;
@@ -324,35 +356,7 @@ auto blend2d_painter::outline_for(basalt::text::font_face const &face, std::uint
   if (outlines_.size() >= outline_cache_limit) {
     outlines_.clear();
   }
-  auto &path = outlines_[key];
-  auto const outline = face.outline(glyph, static_cast<float>(face.units_per_em()));
-  auto next = outline.points.begin();
-  auto const take = [&next] { return to_bl(*next++); };
-  for (auto const verb : outline.verbs) {
-    switch (verb) {
-    case basalt::text::outline_verb::move_to:
-      path.move_to(take());
-      break;
-    case basalt::text::outline_verb::line_to:
-      path.line_to(take());
-      break;
-    case basalt::text::outline_verb::quad_to: {
-      auto const control = take();
-      path.quad_to(control, take());
-      break;
-    }
-    case basalt::text::outline_verb::cubic_to: {
-      auto const first = take();
-      auto const second = take();
-      path.cubic_to(first, second, take());
-      break;
-    }
-    case basalt::text::outline_verb::close:
-      path.close();
-      break;
-    }
-  }
-  return path;
+  return outlines_[key] = glyph_path(face, glyph);
 }
 
 auto blend2d_painter::draw(replay_target &target, basalt::paint_command const &command) -> void {

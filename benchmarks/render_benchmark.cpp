@@ -3,6 +3,9 @@
 // application does while scrolling (redraw everything), typing (redraw one line) and blinking
 // the caret (redraw a sliver).
 //
+// Each case runs on the CPU and, when the computer has one, on the GPU backend. A GPU frame is
+// timed until the GPU has finished it, by reading back one pixel.
+//
 // Run them with `just bench`. Catch2 warms up, estimates the clock cost, takes many samples and
 // reports a bootstrap confidence interval. Compare two runs by their means and intervals; a change
 // is real only when the intervals do not overlap.
@@ -20,8 +23,10 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 using namespace basalt;
 
@@ -93,11 +98,34 @@ auto article(float offset) -> paint_commands {
   return commands;
 }
 
-auto warmed_renderer(float scale, paint_commands const &commands) -> magma::renderer {
-  auto renderer = magma::renderer::create_offscreen();
+auto warmed_renderer(magma::backend_preference preference, float scale,
+                     paint_commands const &commands) -> magma::renderer {
+  auto renderer = magma::renderer::create_offscreen(preference);
   renderer.set_metrics(viewport, scale);
   REQUIRE(renderer.render(commands, {}, white).has_value());
   return renderer;
+}
+
+auto backend_name(magma::renderer const &renderer) -> std::string_view {
+  return renderer.active_backend() == magma::backend::metal ? "metal" : "raster";
+}
+
+// Renders and waits until the frame is finished.
+auto render(magma::renderer &renderer, paint_commands const &commands, std::span<rect const> damage)
+    -> bool {
+  return renderer.render(commands, damage, white).has_value() &&
+         (renderer.active_backend() == magma::backend::raster ||
+          renderer.read_pixel(0, 0).has_value());
+}
+
+// The backends to measure: the CPU, and the GPU when there is one.
+auto backends() -> std::vector<magma::backend_preference> {
+  auto result = std::vector{magma::backend_preference::raster_only};
+  if (magma::renderer::create_offscreen(magma::backend_preference::automatic).active_backend() !=
+      magma::backend::raster) {
+    result.push_back(magma::backend_preference::automatic);
+  }
+  return result;
 }
 
 } // namespace
@@ -107,34 +135,41 @@ TEST_CASE("replay an article page", "[render][benchmark]") {
   auto const page = article(0);
   auto const scrolled = article(37);
 
-  for (auto const scale : {1.0F, 2.0F}) {
-    auto renderer = warmed_renderer(scale, page);
-    auto const name = [scale](std::string_view what) {
-      return std::string{what} + (scale == 1 ? " at scale 1" : " at scale 2");
-    };
+  for (auto const preference : backends()) {
+    for (auto const scale : {1.0F, 2.0F}) {
+      auto renderer = warmed_renderer(preference, scale, page);
+      auto const name = [&renderer, scale](std::string_view what) {
+        return std::string{what} + (scale == 1 ? " at scale 1 (" : " at scale 2 (") +
+               std::string{backend_name(renderer)} + ")";
+      };
 
-    BENCHMARK(name("full redraw while scrolling")) {
-      renderer.request_full_redraw();
-      return renderer.render(scrolled, {}, white).has_value();
-    };
+      BENCHMARK(name("full redraw while scrolling")) {
+        renderer.request_full_redraw();
+        return render(renderer, scrolled, {});
+      };
 
-    auto const typed_line = std::array{rect{{0, 102}, {viewport.width, line_height}}};
-    BENCHMARK(name("one line while typing")) {
-      return renderer.render(page, typed_line, white).has_value();
-    };
+      auto const typed_line = std::array{rect{{0, 102}, {viewport.width, line_height}}};
+      BENCHMARK(name("one line while typing")) { return render(renderer, page, typed_line); };
 
-    auto const caret = std::array{rect{{419, 299}, {4, 22}}};
-    BENCHMARK(name("caret blink")) { return renderer.render(page, caret, white).has_value(); };
+      auto const caret = std::array{rect{{419, 299}, {4, 22}}};
+      BENCHMARK(name("caret blink")) { return render(renderer, page, caret); };
+    }
   }
 }
 
 TEST_CASE("first frame of an article page", "[render][benchmark]") {
   require_optimized_build();
   auto const page = article(0);
-  // A new renderer has empty glyph and image caches, as at startup.
-  BENCHMARK("first frame at scale 2") {
-    auto renderer = magma::renderer::create_offscreen();
-    renderer.set_metrics(viewport, 2);
-    return renderer.render(page, {}, white).has_value();
-  };
+  // A new renderer has empty glyph and image caches, as at startup. For the GPU this includes
+  // creating the device objects and compiling the shaders.
+  for (auto const preference : backends()) {
+    auto const name = std::string{"first frame at scale 2 ("} +
+                      (preference == magma::backend_preference::raster_only ? "raster" : "metal") +
+                      ")";
+    BENCHMARK(std::string{name}) {
+      auto renderer = magma::renderer::create_offscreen(preference);
+      renderer.set_metrics(viewport, 2);
+      return render(renderer, page, {});
+    };
+  }
 }

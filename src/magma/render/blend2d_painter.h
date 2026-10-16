@@ -11,6 +11,9 @@
 
 namespace magma::render {
 
+// The outline of `glyph` in font units, with y growing downward and the face's variation applied.
+[[nodiscard]] auto glyph_path(basalt::text::font_face const &face, std::uint32_t glyph) -> BLPath;
+
 // Where the painter draws during a replay: the current context, which changes when a layer
 // opens or closes.
 class replay_target {

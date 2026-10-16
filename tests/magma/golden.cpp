@@ -14,11 +14,6 @@
 namespace magma::test {
 namespace {
 
-// The largest difference in one channel that still counts as equal.
-constexpr auto channel_tolerance = 3;
-// The part of the pixels that may differ by more.
-constexpr auto outlier_fraction = 0.002;
-
 auto update_requested() -> bool {
 #if defined(_MSC_VER)
   char *value = nullptr;
@@ -76,11 +71,13 @@ auto largest_channel_difference(std::uint32_t a, std::uint32_t b) -> int {
 
 } // namespace
 
-auto compare_with_golden(std::string_view name, basalt::raster_image const &frame)
-    -> golden_result {
+auto compare_with_golden(std::string_view name, basalt::raster_image const &frame,
+                         golden_tolerance tolerance, std::string_view backend) -> golden_result {
   auto const golden_path = std::filesystem::path{MAGMA_GOLDEN_DIR} / std::format("{}.png", name);
+  auto const output_name =
+      backend.empty() ? std::string{name} : std::format("{}-{}", name, backend);
   auto const actual = to_image(frame);
-  if (update_requested()) {
+  if (backend.empty() && update_requested()) {
     std::filesystem::create_directories(golden_path.parent_path());
     if (actual.write_to_file(golden_path.string().c_str()) != BL_SUCCESS) {
       return {false, std::format("could not write {}", golden_path.string())};
@@ -90,7 +87,7 @@ auto compare_with_golden(std::string_view name, basalt::raster_image const &fram
 
   auto const output_dir = std::filesystem::path{MAGMA_GOLDEN_OUTPUT_DIR};
   std::filesystem::create_directories(output_dir);
-  auto const actual_path = output_dir / std::format("{}.png", name);
+  auto const actual_path = output_dir / std::format("{}.png", output_name);
   actual.write_to_file(actual_path.string().c_str());
 
   auto expected = BLImage{};
@@ -123,7 +120,7 @@ auto compare_with_golden(std::string_view name, basalt::raster_image const &fram
       auto const difference =
           largest_channel_difference(pixel_at(expected_data, x, y), pixel_at(actual_data, x, y));
       largest = std::max(largest, difference);
-      if (difference > channel_tolerance) {
+      if (difference > tolerance.channel) {
         ++outliers;
         row[x] = 0xffff0000U;
       } else {
@@ -133,17 +130,19 @@ auto compare_with_golden(std::string_view name, basalt::raster_image const &fram
       }
     }
   }
-  auto const allowed =
-      static_cast<int>(outlier_fraction * static_cast<double>(actual.width() * actual.height()));
-  if (outliers <= allowed) {
+  auto const allowed = static_cast<int>(tolerance.outlier_fraction *
+                                        static_cast<double>(actual.width() * actual.height()));
+  if (outliers <= allowed && largest <= tolerance.outlier_channel) {
     return {true, {}};
   }
-  auto const difference_path = output_dir / std::format("{}-diff.png", name);
+  auto const difference_path = output_dir / std::format("{}-diff.png", output_name);
   differences.write_to_file(difference_path.string().c_str());
-  return {false, std::format("{} pixels differ by more than {} (up to {}; {} allowed). The "
-                             "frame is in {} and the differences, in red, are in {}.",
-                             outliers, channel_tolerance, largest, allowed, actual_path.string(),
-                             difference_path.string())};
+  return {false,
+          std::format("{} pixels differ by more than {} ({} allowed), by up to {} ({} "
+                      "allowed). The frame is in {} and the differences, in red, are in "
+                      "{}.",
+                      outliers, tolerance.channel, allowed, largest, tolerance.outlier_channel,
+                      actual_path.string(), difference_path.string())};
 }
 
 } // namespace magma::test
