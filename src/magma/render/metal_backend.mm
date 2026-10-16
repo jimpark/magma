@@ -225,8 +225,8 @@ auto redraw_mode_from_environment() -> redraw_mode {
 }
 
 // The layer's drawable count (2 or 3) and display sync (0 or 1), from MAGMA_METAL_DRAWABLES and
-// MAGMA_METAL_VSYNC. Display sync is off unless the variable is 1, because with it a frame reaches
-// the screen about two refreshes later. Other drawable counts keep the layer's default of 3.
+// MAGMA_METAL_VSYNC. Display sync is on unless the variable is 0: without it, slow scrolling
+// tears. Other drawable counts keep the layer's default of 3.
 auto apply_layer_settings_from_environment(CAMetalLayer *layer) -> void {
   auto const read = [](char const *name) {
     auto const *const value = std::getenv(name);
@@ -235,7 +235,7 @@ auto apply_layer_settings_from_environment(CAMetalLayer *layer) -> void {
   if (auto const drawables = read("MAGMA_METAL_DRAWABLES"); drawables == "2" || drawables == "3") {
     layer.maximumDrawableCount = drawables == "2" ? 2 : 3;
   }
-  layer.displaySyncEnabled = read("MAGMA_METAL_VSYNC") == "1" ? YES : NO;
+  layer.displaySyncEnabled = read("MAGMA_METAL_VSYNC") == "0" ? NO : YES;
 }
 
 auto describe(NSError *error) -> std::string {

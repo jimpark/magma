@@ -47,10 +47,9 @@ variable `MAGMA_METAL_REDRAW=full` before you create the renderer. Then `needs_f
 always true, so send all of the paint commands on each frame. This mode is for comparing the two
 methods.
 
-The Metal layer does not sync to the display, so a frame reaches the screen soon after the GPU
-completes it. With display sync, the system shows a frame about two refreshes after it starts,
-which makes typing feel slow. Display pacing keeps the frames at the display's rate. Two more
-variables change the layer for measurement: `MAGMA_METAL_VSYNC=1` turns display sync on, and
+The Metal layer syncs to the display, so the system shows a frame about two refreshes after it
+starts. Without display sync, keystrokes reach the screen sooner, but slow scrolling tears. Two
+more variables change the layer for measurement: `MAGMA_METAL_VSYNC=0` turns display sync off, and
 `MAGMA_METAL_DRAWABLES` (`2` or `3`) sets the number of drawables. The default is three drawables. The Metal backend compiles its shaders when it starts, so the build does not need the
 Metal toolchain.
 

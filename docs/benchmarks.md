@@ -4,8 +4,8 @@ This file records how fast Magma draws in a real application, and the decisions 
 support. The numbers come from med, the MEPSA editor, which can draw with its own Skia renderer or
 with Magma's renderer. The latest results show that Magma's Metal backend is as fast as Skia or
 faster on every measurement. Display pacing removed most missed frames while scrolling. Keystrokes
-reach the screen within one refresh only when display sync is off, so display sync is off by
-default.
+reach the screen within one refresh only when display sync is off, but then slow scrolling
+tears, so display sync stays on by default.
 
 ## Method
 
@@ -24,9 +24,8 @@ default.
 
 ## Results
 
-Magma at version 0.3.0, with display pacing. Times are in milliseconds. These runs were made
-while display sync was on by default, so the rows that say "display sync off" set
-`MAGMA_METAL_VSYNC=0`.
+Magma at version 0.3.0, with display pacing. Times are in milliseconds. The rows that say
+"display sync off" set `MAGMA_METAL_VSYNC=0`.
 
 | Configuration | Startup | Scroll misses | Fling misses | Scroll draw p50 / p99 | Key latency p50 / p99 | Keys within one refresh |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -49,13 +48,15 @@ The baseline before Magma's display pacing was Skia on Metal with a 60 Hz timer.
 - Display pacing: frames follow the display link. Scroll misses fell from about 11 to 1 for Magma
   and to 3 for Skia.
 - Display sync: with sync on, a frame reaches the screen about two refreshes after it starts. This
-  is the system compositor, not the renderer. Only sync off meets the typing target, and med felt
-  better with it in use, so sync is off by default. `MAGMA_METAL_VSYNC=1` turns it on.
+  is the system compositor, not the renderer. Only sync off meets the typing target, but with it
+  slow scrolling in med tears in a window, in waves across the text. Sync stays on by default.
+  `MAGMA_METAL_VSYNC=0` turns it off.
 - Drawable count: two drawables gave no clear change in one run, so the default of three stays.
 
 ## Open Measurements
 
 - The 120 Hz built-in display and the external display, each with the window on it.
-- Tearing with display sync off in full screen and on the external display.
+- A way to meet the typing target with display sync on, for example by starting the frame for a
+  keystroke later in the refresh, or by presenting it at a set time.
 - Key latency includes med's own work for each key, which grows from about 0.1 ms to about 4 ms
   as the typed paragraph gets longer.
