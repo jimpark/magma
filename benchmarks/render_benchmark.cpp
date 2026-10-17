@@ -98,6 +98,31 @@ auto article(float offset) -> paint_commands {
   return commands;
 }
 
+// A grid of 6 by 5 translucent cards. Each card is a layer with a background and three lines of
+// text, so the scene has many layer passes and many batches that a small damage rect misses.
+auto card_grid() -> paint_commands {
+  constexpr auto columns = 6;
+  constexpr auto rows = 5;
+  constexpr auto card_size = size{184, 144};
+  auto commands = paint_commands{};
+  for (auto row = 0; row < rows; ++row) {
+    for (auto column = 0; column < columns; ++column) {
+      auto const origin =
+          point{8 + static_cast<float>(column) * 198, 8 + static_cast<float>(row) * 156};
+      commands.emplace_back(begin_layer_command{235});
+      commands.emplace_back(
+          fill_rounded_rect_command{{origin, card_size}, {240, 240, 245, 255}, 8});
+      for (auto line = 0; line < 3; ++line) {
+        add_text(commands, "Card text for one line",
+                 {origin.x + 12, origin.y + 32 + 28 * static_cast<float>(line)}, 14,
+                 {30, 30, 30, 255});
+      }
+      commands.emplace_back(end_layer_command{});
+    }
+  }
+  return commands;
+}
+
 auto warmed_renderer(magma::backend_preference preference, float scale,
                      paint_commands const &commands) -> magma::renderer {
   auto renderer = magma::renderer::create_offscreen(preference);
@@ -153,6 +178,22 @@ TEST_CASE("replay an article page", "[render][benchmark]") {
 
       auto const caret = std::array{rect{{419, 299}, {4, 22}}};
       BENCHMARK(name("caret blink")) { return render(renderer, page, caret); };
+
+      // Basalt sends up to 16 damage rects. Each one makes the GPU backends walk the scene again.
+      auto scattered_lines = std::array<rect, 8>{};
+      for (auto index = std::size_t{0}; index < scattered_lines.size(); ++index) {
+        scattered_lines[index] = {{0, 102 + 80 * static_cast<float>(index)},
+                                  {viewport.width, line_height}};
+      }
+      BENCHMARK(name("8 lines damaged")) { return render(renderer, page, scattered_lines); };
+
+      auto scattered_slivers = std::array<rect, 16>{};
+      for (auto index = std::size_t{0}; index < scattered_slivers.size(); ++index) {
+        scattered_slivers[index] = {
+            {64 + 64 * static_cast<float>(index), 299 + 8 * static_cast<float>(index % 4)},
+            {4, 22}};
+      }
+      BENCHMARK(name("16 slivers damaged")) { return render(renderer, page, scattered_slivers); };
     }
   }
 }
@@ -171,5 +212,33 @@ TEST_CASE("first frame of an article page", "[render][benchmark]") {
       renderer.set_metrics(viewport, 2);
       return render(renderer, page, {});
     };
+  }
+}
+
+TEST_CASE("replay a grid of layered cards", "[render][benchmark]") {
+  require_optimized_build();
+  auto const grid = card_grid();
+
+  for (auto const preference : backends()) {
+    auto renderer = warmed_renderer(preference, 2, grid);
+    auto const name = [&renderer](std::string_view what) {
+      return std::string{what} + " (" + std::string{backend_name(renderer)} + ")";
+    };
+
+    BENCHMARK(name("cards: full redraw")) {
+      renderer.request_full_redraw();
+      return render(renderer, grid, {});
+    };
+
+    auto one_card = std::array{rect{{210, 164}, {184, 144}}};
+    BENCHMARK(name("cards: 1 card damaged")) { return render(renderer, grid, one_card); };
+
+    auto sixteen = std::array<rect, 16>{};
+    for (auto index = std::size_t{0}; index < sixteen.size(); ++index) {
+      auto const column = static_cast<float>(index % 6);
+      auto const row = static_cast<float>(index / 6);
+      sixteen[index] = {{20 + column * 198, 40 + row * 156}, {60, 20}};
+    }
+    BENCHMARK(name("cards: 16 slivers damaged")) { return render(renderer, grid, sixteen); };
   }
 }

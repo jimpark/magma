@@ -174,6 +174,27 @@ TEST_CASE("events carry the window they belong to, and quit uses window 0", "[pl
         basalt::window_action::close_requested);
 }
 
+TEST_CASE("a live resize callback sees each resize and can be removed", "[platform][events]") {
+  auto platform = make_platform();
+  auto const window = make_window(platform, {100, 100});
+  auto seen = std::vector<magma::platform_event>{};
+  platform.set_live_resize_callback(
+      [&seen](magma::platform_event const &event) { seen.push_back(event); });
+
+  auto resized = SDL_Event{};
+  resized.window.type = SDL_EVENT_WINDOW_RESIZED;
+  resized.window.windowID = window;
+  push(resized);
+  REQUIRE(seen.size() == 1);
+  CHECK(seen[0].window == window);
+  CHECK(std::get<basalt::window_event>(seen[0].event).action == basalt::window_action::resized);
+  CHECK(platform.poll_events().size() == 1);
+
+  platform.set_live_resize_callback({});
+  push(resized);
+  CHECK(seen.size() == 1);
+}
+
 TEST_CASE("wheel notches become layout pixels in the wheel's direction", "[platform][events]") {
   auto platform = make_platform();
   auto const window = make_window(platform, {100, 100});

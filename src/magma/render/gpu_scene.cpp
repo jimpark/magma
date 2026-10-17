@@ -146,12 +146,31 @@ public:
     case entry_kind::state:
       break;
     case entry_kind::layer:
-      scene_.ops.emplace_back(end_layer_pass{});
-      std::get<begin_layer_pass>(scene_.ops[top.begin_op]).end =
-          static_cast<std::uint32_t>(scene_.ops.size());
-      composite(top);
+      close_layer(top);
       break;
     }
+  }
+
+  // A layer covers only what it drew, so that culling and its texture fit its content. A layer
+  // that drew nothing is removed with the layers inside it.
+  auto close_layer(entry const &layer) -> void {
+    auto drawn = pixel_rect{};
+    for (auto index = layer.begin_op + 1; index < scene_.ops.size(); ++index) {
+      if (auto const *const batch = std::get_if<draw_batch>(&scene_.ops[index])) {
+        drawn = union_of(drawn, batch->bounds);
+      }
+    }
+    auto &area = scene_.layers[layer.layer].area;
+    area = intersect(area, drawn);
+    if (!has_area(area)) {
+      scene_.ops.resize(layer.begin_op);
+      scene_.layers.resize(layer.layer);
+      return;
+    }
+    scene_.ops.emplace_back(end_layer_pass{});
+    std::get<begin_layer_pass>(scene_.ops[layer.begin_op]).end =
+        static_cast<std::uint32_t>(scene_.ops.size());
+    composite(layer);
   }
 
   auto draw(basalt::paint_command const &command) -> void {
