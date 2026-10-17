@@ -195,6 +195,51 @@ TEST_CASE("a layer begin names the operation after its end, also when layers nes
   CHECK(std::holds_alternative<end_layer_pass>(ops[outer.end - 1]));
 }
 
+TEST_CASE("a layer covers only the pixels it draws", "[gpu]") {
+  auto const result = build({
+      begin_layer_command{128},
+      fill_rect_command{{{20, 30}, {10, 10}}, red},
+      end_layer_command{},
+  });
+  auto const &scene = *result->scene;
+  REQUIRE(scene.layers.size() == 1);
+  // The rect with one pixel around it for the antialiased edge, not the whole clip.
+  auto const area = scene.layers[0].area;
+  CHECK(area.x == 19);
+  CHECK(area.y == 29);
+  CHECK(area.width == 12);
+  CHECK(area.height == 12);
+  REQUIRE(scene.ops.size() == 4);
+  auto const composite = batch(scene.ops[3]);
+  CHECK(scene.instances[composite.first].inner == std::array{19.0F, 29.0F, 1.0F / 12, 1.0F / 12});
+  CHECK(composite.bounds.x == 19);
+  CHECK(composite.bounds.width == 12);
+}
+
+TEST_CASE("a layer that draws nothing is left out, with the layers inside it", "[gpu]") {
+  auto const result = build({
+      fill_rect_command{{{0, 0}, {10, 10}}, red},
+      begin_layer_command{128},
+      begin_layer_command{128},
+      fill_rect_command{{{200, 200}, {10, 10}}, red},
+      end_layer_command{},
+      end_layer_command{},
+      begin_layer_command{128},
+      fill_rect_command{{{50, 50}, {10, 10}}, red},
+      end_layer_command{},
+  });
+  auto const &scene = *result->scene;
+  // Only the last layer remains, and it takes the first index.
+  REQUIRE(scene.layers.size() == 1);
+  REQUIRE(scene.ops.size() == 5);
+  CHECK(batch(scene.ops[0]).count == 1);
+  auto const &begin = std::get<begin_layer_pass>(scene.ops[1]);
+  CHECK(begin.layer == 0);
+  CHECK(begin.end == 4);
+  CHECK(std::holds_alternative<end_layer_pass>(scene.ops[3]));
+  CHECK(batch(scene.ops[4]).texture == texture_ref{texture_ref::source::layer, 0});
+}
+
 namespace {
 
 struct test_target {
@@ -258,7 +303,7 @@ TEST_CASE("the walk skips batches and layer passes that cannot reach a damaged a
                             "scissor 70 70 30 30",
                             "clear 1",
                             "begin 0",
-                            "scissor 70 70 30 30",
+                            "scissor 79 79 12 12",
                             "draw 3 1",
                             "end",
                             "scissor 70 70 30 30",
