@@ -182,7 +182,8 @@ auto platform::present_pixels(window_id window, std::span<std::byte const> pixel
   }
   SDL_SetSurfaceBlendMode(source.get(), SDL_BLENDMODE_NONE);
 
-  auto rects = std::vector<SDL_Rect>{};
+  auto &rects = impl_->present_rects;
+  rects.clear();
   for (auto const &area : damage) {
     auto const left = std::clamp(area.x, 0, target->w);
     auto const top = std::clamp(area.y, 0, target->h);

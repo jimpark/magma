@@ -51,6 +51,8 @@ struct platform::impl {
     gl_contexts.clear();
   }
   std::unordered_map<cursor_shape, sdl_cursor_handle> cursors;
+  // Kept between frames so that presenting does not allocate.
+  std::vector<SDL_Rect> present_rects;
   std::shared_ptr<std::vector<std::exception_ptr>> dialog_callback_errors =
       std::make_shared<std::vector<std::exception_ptr>>();
 };

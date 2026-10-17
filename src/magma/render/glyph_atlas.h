@@ -7,12 +7,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <span>
 #include <unordered_map>
 #include <vector>
 
 namespace magma::render {
+
+class outline_cache;
 
 // One glyph bitmap in the atlas. `x`, `y`, `width` and `height` are its texels on page `page`.
 // `left` and `top` move the pen position, in whole pixels, to the bitmap's top-left corner.
@@ -54,6 +57,9 @@ public:
   static constexpr auto largest_pixels_per_em = 256.0F;
 
   explicit glyph_atlas(int page_size = 1024, std::size_t page_limit = 4);
+  glyph_atlas(glyph_atlas &&) noexcept;
+  auto operator=(glyph_atlas &&) noexcept -> glyph_atlas &;
+  ~glyph_atlas();
 
   [[nodiscard]] auto page_size() const -> int { return page_size_; }
 
@@ -91,6 +97,8 @@ private:
   std::uint64_t next_page_id_ = 1;
   std::vector<atlas_page> pages_;
   std::unordered_map<key, std::optional<atlas_glyph>, key_hash> glyphs_;
+  // Outlines are the same for every size and subpixel step of a glyph.
+  std::unique_ptr<outline_cache> outlines_;
 };
 
 } // namespace magma::render

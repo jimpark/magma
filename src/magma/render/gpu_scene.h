@@ -56,16 +56,20 @@ struct texture_ref {
 };
 
 // Instances [first, first + count) drawn with one texture. Clips need no scissor: each instance
-// has its clip, and its quad stays inside it.
+// has its clip, and its quad stays inside it. `bounds` covers the quads of all of them, in frame
+// device pixels.
 struct draw_batch {
   texture_ref texture;
   std::uint32_t first = 0;
   std::uint32_t count = 0;
+  pixel_rect bounds;
 };
 
 // The draws that follow go into layer `layer`, cleared to transparent, until the matching end.
+// `end` is the index of the operation after the matching `end_layer_pass`.
 struct begin_layer_pass {
   std::uint32_t layer = 0;
+  std::uint32_t end = 0;
 };
 
 // The draws that follow go back to the target that was active before the matching begin.

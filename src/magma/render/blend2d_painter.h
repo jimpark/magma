@@ -14,6 +14,30 @@ namespace magma::render {
 // The outline of `glyph` in font units, with y growing downward and the face's variation applied.
 [[nodiscard]] auto glyph_path(basalt::text::font_face const &face, std::uint32_t glyph) -> BLPath;
 
+// Glyph outlines by face and glyph, made on first use. The cache is not evicted one outline at a
+// time. One this large means the caller has moved on through many fonts, so starting over is
+// cheaper than tracking use.
+class outline_cache {
+public:
+  [[nodiscard]] auto get(basalt::text::font_face const &face, std::uint32_t glyph)
+      -> BLPath const &;
+
+private:
+  struct glyph_key {
+    std::uint64_t face = 0;
+    std::uint32_t glyph = 0;
+
+    [[nodiscard]] friend auto operator==(glyph_key const &, glyph_key const &) -> bool = default;
+  };
+  struct glyph_key_hash {
+    [[nodiscard]] auto operator()(glyph_key const &key) const -> std::size_t {
+      return std::hash<std::uint64_t>{}(key.face * 0x9e3779b97f4a7c15ULL ^ key.glyph);
+    }
+  };
+
+  std::unordered_map<glyph_key, BLPath, glyph_key_hash> outlines_;
+};
+
 // Where the painter draws during a replay: the current context, which changes when a layer
 // opens or closes.
 class replay_target {
@@ -40,26 +64,16 @@ public:
   [[nodiscard]] auto image_for(basalt::raster_image const &image) -> BLImage const &;
   // The outline of `glyph` in font units, with y growing downward.
   [[nodiscard]] auto outline_for(basalt::text::font_face const &face, std::uint32_t glyph)
-      -> BLPath const &;
+      -> BLPath const & {
+    return outlines_.get(face, glyph);
+  }
 
 private:
   auto draw(replay_target &target, basalt::paint_command const &command) -> void;
   auto draw_glyph_run(BLContext &context, basalt::draw_glyph_run_command const &command) -> void;
 
-  struct glyph_key {
-    std::uint64_t face = 0;
-    std::uint32_t glyph = 0;
-
-    [[nodiscard]] friend auto operator==(glyph_key const &, glyph_key const &) -> bool = default;
-  };
-  struct glyph_key_hash {
-    [[nodiscard]] auto operator()(glyph_key const &key) const -> std::size_t {
-      return std::hash<std::uint64_t>{}(key.face * 0x9e3779b97f4a7c15ULL ^ key.glyph);
-    }
-  };
-
   std::unordered_map<std::uint64_t, BLImage> images_;
-  std::unordered_map<glyph_key, BLPath, glyph_key_hash> outlines_;
+  outline_cache outlines_;
   BLPath run_path_;
 };
 

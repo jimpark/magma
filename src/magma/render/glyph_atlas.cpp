@@ -8,24 +8,13 @@
 #include <cstring>
 
 #include "blend2d_painter.h"
+#include "pixels.h"
 
 namespace magma::render {
 namespace {
 
 // Texels left empty between bitmaps, so that bilinear sampling never reaches a neighbour.
 constexpr auto gap = 1;
-
-auto add_to_dirty(pixel_rect &dirty, pixel_rect area) -> void {
-  if (dirty.width == 0 || dirty.height == 0) {
-    dirty = area;
-    return;
-  }
-  auto const left = std::min(dirty.x, area.x);
-  auto const top = std::min(dirty.y, area.y);
-  auto const right = std::max(dirty.x + dirty.width, area.x + area.width);
-  auto const bottom = std::max(dirty.y + dirty.height, area.y + area.height);
-  dirty = {left, top, right - left, bottom - top};
-}
 
 } // namespace
 
@@ -37,7 +26,11 @@ auto glyph_atlas::key_hash::operator()(key const &value) const -> std::size_t {
 }
 
 glyph_atlas::glyph_atlas(int page_size, std::size_t page_limit)
-    : page_size_(page_size), page_limit_(page_limit) {}
+    : page_size_(page_size), page_limit_(page_limit), outlines_(std::make_unique<outline_cache>()) {
+}
+glyph_atlas::glyph_atlas(glyph_atlas &&) noexcept = default;
+auto glyph_atlas::operator=(glyph_atlas &&) noexcept -> glyph_atlas & = default;
+glyph_atlas::~glyph_atlas() = default;
 
 auto glyph_atlas::begin_frame() -> void {
   if (pages_.size() > page_limit_) {
@@ -97,7 +90,7 @@ auto glyph_atlas::find(basalt::text::font_face const &face, std::uint32_t glyph,
   }
   auto &entry = glyphs_[id];
 
-  auto const path = glyph_path(face, glyph);
+  auto const &path = outlines_->get(face, glyph);
   auto box = BLBox{};
   if (path.is_empty() || path.get_bounding_box(&box) != BL_SUCCESS) {
     return nullptr;
@@ -142,7 +135,7 @@ auto glyph_atlas::find(basalt::text::font_face const &face, std::uint32_t glyph,
                 static_cast<std::uint8_t const *>(data.pixel_data) + row * data.stride,
                 static_cast<std::size_t>(placed->width));
   }
-  add_to_dirty(page.dirty, {placed->x, placed->y, placed->width, placed->height});
+  page.dirty = union_of(page.dirty, {placed->x, placed->y, placed->width, placed->height});
   entry = placed;
   return &*entry;
 }

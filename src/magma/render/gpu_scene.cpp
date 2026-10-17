@@ -6,6 +6,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "pixels.h"
+
 namespace magma::render {
 namespace {
 
@@ -34,16 +36,11 @@ auto edges(rect area) -> std::array<float, 4> {
   return {area.left(), area.top(), area.right(), area.bottom()};
 }
 
-auto premultiplied(basalt::rgba color) -> std::array<float, 4> {
-  auto const alpha = static_cast<float>(color.a) / 255;
-  return {static_cast<float>(color.r) / 255 * alpha, static_cast<float>(color.g) / 255 * alpha,
-          static_cast<float>(color.b) / 255 * alpha, alpha};
-}
-
 // The rows of the device-to-local map for a local-to-device transform. Empty when it is
 // singular.
-auto local_rows(affine_transform const &to_device)
-    -> std::optional<std::pair<std::array<float, 4>, std::array<float, 4>>> {
+using local_map = std::pair<std::array<float, 4>, std::array<float, 4>>;
+
+auto local_rows(affine_transform const &to_device) -> std::optional<local_map> {
   auto const inverse = basalt::invert(to_device);
   if (!inverse) {
     return std::nullopt;
@@ -74,6 +71,7 @@ struct entry {
   // For a layer: which one, its opacity, and for a clip that is not axis-aligned, the clip in
   // the local space of `mask_transform`.
   std::uint32_t layer = 0;
+  std::size_t begin_op = 0;
   float opacity = 1;
   std::optional<rect> mask;
   affine_transform mask_transform;
@@ -118,6 +116,7 @@ public:
     }
     push_state();
     transform_ = transform_ * transform;
+    rows_valid_ = false;
   }
 
   auto begin_layer(std::uint8_t opacity) -> void {
@@ -138,6 +137,7 @@ public:
     auto const top = stack_.back();
     stack_.pop_back();
     transform_ = top.transform;
+    rows_valid_ = false;
     clip_ = top.clip;
     switch (top.kind) {
     case entry_kind::culled:
@@ -147,6 +147,8 @@ public:
       break;
     case entry_kind::layer:
       scene_.ops.emplace_back(end_layer_pass{});
+      std::get<begin_layer_pass>(scene_.ops[top.begin_op]).end =
+          static_cast<std::uint32_t>(scene_.ops.size());
       composite(top);
       break;
     }
@@ -158,22 +160,22 @@ public:
           using type = std::decay_t<decltype(value)>;
           if constexpr (std::is_same_v<type, basalt::fill_rect_command>) {
             if (!value.bounds.empty()) {
-              add_shape(transform_, value.bounds, 0, std::nullopt, 0, value.color);
+              add_shape(transform_, current_rows(), value.bounds, 0, std::nullopt, 0, value.color);
             }
           } else if constexpr (std::is_same_v<type, basalt::stroke_rect_command>) {
             auto const half = basalt::insets::uniform(stroke_width(value.width) / 2);
-            add_shape(transform_, basalt::outset(value.bounds, half), 0,
+            add_shape(transform_, current_rows(), basalt::outset(value.bounds, half), 0,
                       basalt::inset(value.bounds, half), 0, value.color);
           } else if constexpr (std::is_same_v<type, basalt::fill_rounded_rect_command>) {
             if (!value.bounds.empty()) {
-              add_shape(transform_, value.bounds, radius(value.bounds, value.radius), std::nullopt,
-                        0, value.color);
+              add_shape(transform_, current_rows(), value.bounds,
+                        radius(value.bounds, value.radius), std::nullopt, 0, value.color);
             }
           } else if constexpr (std::is_same_v<type, basalt::stroke_rounded_rect_command>) {
             auto const width = stroke_width(value.width);
             auto const half = basalt::insets::uniform(width / 2);
             auto const corner = radius(value.bounds, value.radius);
-            add_shape(transform_, basalt::outset(value.bounds, half),
+            add_shape(transform_, current_rows(), basalt::outset(value.bounds, half),
                       corner > 0 ? corner + width / 2 : 0, basalt::inset(value.bounds, half),
                       std::max(corner - width / 2, 0.0F), value.color);
           } else if constexpr (std::is_same_v<type, basalt::line_command>) {
@@ -207,8 +209,10 @@ private:
   auto push_layer(pixel_rect area, float opacity, std::optional<rect> mask) -> void {
     auto const index = static_cast<std::uint32_t>(scene_.layers.size());
     scene_.layers.push_back({area});
+    auto const begin_op = scene_.ops.size();
     scene_.ops.emplace_back(begin_layer_pass{index});
-    stack_.push_back({entry_kind::layer, transform_, clip_, index, opacity, mask, transform_});
+    stack_.push_back(
+        {entry_kind::layer, transform_, clip_, index, begin_op, opacity, mask, transform_});
     clip_ = to_rect(area);
   }
 
@@ -249,7 +253,8 @@ private:
       return;
     }
     // Whole pixels, so that every pixel the clip touches gets a fragment.
-    instance.bounds = edges(to_rect(round_out(bounds)));
+    auto const placed = round_out(bounds);
+    instance.bounds = edges(to_rect(placed));
     instance.clip = edges(clip_);
     auto const index = static_cast<std::uint32_t>(scene_.instances.size());
     scene_.instances.push_back(instance);
@@ -257,18 +262,28 @@ private:
       if (auto *const batch = std::get_if<draw_batch>(&scene_.ops.back());
           batch != nullptr && batch->texture == texture && batch->first + batch->count == index) {
         ++batch->count;
+        batch->bounds = union_of(batch->bounds, placed);
         return;
       }
     }
-    scene_.ops.emplace_back(draw_batch{texture, index, 1});
+    scene_.ops.emplace_back(draw_batch{texture, index, 1, placed});
   }
 
-  auto add_shape(affine_transform const &to_device, rect outer, float outer_radius,
-                 std::optional<rect> inner, float inner_radius, basalt::rgba color) -> void {
+  // The device-to-local map of the current transform, inverted once for each change of it.
+  [[nodiscard]] auto current_rows() -> std::optional<local_map> const & {
+    if (!rows_valid_) {
+      rows_ = local_rows(transform_);
+      rows_valid_ = true;
+    }
+    return rows_;
+  }
+
+  auto add_shape(affine_transform const &to_device, std::optional<local_map> const &rows,
+                 rect outer, float outer_radius, std::optional<rect> inner, float inner_radius,
+                 basalt::rgba color) -> void {
     if (color.a == 0) {
       return;
     }
-    auto const rows = local_rows(to_device);
     if (!rows) {
       return;
     }
@@ -297,15 +312,16 @@ private:
     auto const along = affine_transform{dx / length, dy / length, -dy / length,
                                         dx / length, line.from.x, line.from.y};
     auto const width = stroke_width(line.width);
-    add_shape(transform_ * along, rect::from_edges(0, -width / 2, length, width / 2), 0,
-              std::nullopt, 0, line.color);
+    auto const to_device = transform_ * along;
+    add_shape(to_device, local_rows(to_device), rect::from_edges(0, -width / 2, length, width / 2),
+              0, std::nullopt, 0, line.color);
   }
 
   auto add_image(basalt::draw_image_command const &command) -> void {
     if (command.image == nullptr || command.bounds.empty()) {
       return;
     }
-    auto const rows = local_rows(transform_);
+    auto const &rows = current_rows();
     if (!rows) {
       return;
     }
@@ -388,7 +404,7 @@ private:
     }
 
     // Otherwise each bitmap is drawn as a quad in the run's space and sampled.
-    auto const rows = local_rows(transform_);
+    auto const &rows = current_rows();
     if (!rows) {
       return;
     }
@@ -423,6 +439,8 @@ private:
   std::vector<entry> stack_;
   // Layout pixels to frame device pixels.
   affine_transform transform_;
+  std::optional<local_map> rows_;
+  bool rows_valid_ = false;
   // The current clip in frame device pixels.
   rect clip_;
   float scale_ = 1;

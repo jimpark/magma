@@ -347,7 +347,7 @@ auto blend2d_painter::image_for(basalt::raster_image const &image) -> BLImage co
   return copy;
 }
 
-auto blend2d_painter::outline_for(basalt::text::font_face const &face, std::uint32_t glyph)
+auto outline_cache::get(basalt::text::font_face const &face, std::uint32_t glyph)
     -> BLPath const & {
   auto const key = glyph_key{face.id(), glyph};
   if (auto const found = outlines_.find(key); found != outlines_.end()) {

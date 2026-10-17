@@ -10,6 +10,7 @@
 
 #include "backend.h"
 #include "blend2d_painter.h"
+#include "pixels.h"
 
 namespace magma::render {
 namespace {
@@ -96,20 +97,10 @@ public:
     }
     auto data = BLImageData{};
     frame_.get_data(&data);
-    auto const width = frame_.width();
-    auto const height = frame_.height();
-    auto pixels = std::vector<std::uint8_t>{};
-    pixels.reserve(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4);
-    for (auto y = 0; y < height; ++y) {
-      auto const *const row = reinterpret_cast<std::uint32_t const *>(
+    return to_raster_image(frame_.width(), frame_.height(), [&](int y) {
+      return reinterpret_cast<std::uint32_t const *>(
           static_cast<std::uint8_t const *>(data.pixel_data) + y * data.stride);
-      for (auto x = 0; x < width; ++x) {
-        auto const color = unpremultiply(row[x]);
-        pixels.insert(pixels.end(), {color.r, color.g, color.b, color.a});
-      }
-    }
-    return basalt::raster_image::create(static_cast<std::uint32_t>(width),
-                                        static_cast<std::uint32_t>(height), std::move(pixels));
+    });
   }
 
 private:
