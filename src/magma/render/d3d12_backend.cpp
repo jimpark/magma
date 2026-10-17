@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "backend.h"
+#include "environment.h"
 #include "glyph_atlas.h"
 #include "gpu_scene.h"
 
@@ -64,15 +65,9 @@ auto intersect(pixel_rect a, pixel_rect b) -> pixel_rect {
   return {left, top, std::max(0, right - left), std::max(0, bottom - top)};
 }
 
-auto warp_requested() -> bool {
-  auto const *const value = std::getenv("MAGMA_D3D12_ADAPTER");
-  return value != nullptr && std::string_view{value} == "warp";
-}
+auto warp_requested() -> bool { return environment_equals("MAGMA_D3D12_ADAPTER", "warp"); }
 
-auto validation_requested() -> bool {
-  auto const *const value = std::getenv("MAGMA_D3D12_VALIDATION");
-  return value != nullptr && std::string_view{value} == "1";
-}
+auto validation_requested() -> bool { return environment_equals("MAGMA_D3D12_VALIDATION", "1"); }
 
 struct handle_closer {
   auto operator()(void *handle) const -> void { CloseHandle(handle); }

@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "backend.h"
+#include "environment.h"
 #include "glyph_atlas.h"
 #include "gpu_scene.h"
 
@@ -139,14 +140,10 @@ auto intersect(pixel_rect a, pixel_rect b) -> pixel_rect {
 }
 
 auto software_devices_allowed() -> bool {
-  auto const *const value = std::getenv("MAGMA_VULKAN_ALLOW_SOFTWARE");
-  return value != nullptr && std::string_view{value} == "1";
+  return environment_equals("MAGMA_VULKAN_ALLOW_SOFTWARE", "1");
 }
 
-auto validation_requested() -> bool {
-  auto const *const value = std::getenv("MAGMA_VULKAN_VALIDATION");
-  return value != nullptr && std::string_view{value} == "1";
-}
+auto validation_requested() -> bool { return environment_equals("MAGMA_VULKAN_VALIDATION", "1"); }
 
 auto has_instance_layer(char const *name) -> bool {
   auto count = std::uint32_t{0};
@@ -223,8 +220,8 @@ auto scope_of(VkImageLayout layout, bool as_destination) -> layout_scope {
   case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
     return {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT};
   default:
-    return {as_destination ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
-                           : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    return {static_cast<VkPipelineStageFlags>(as_destination ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
+                                                             : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT),
             0};
   }
 }
@@ -333,9 +330,9 @@ public:
     auto extensions = std::vector<char const *>{};
     auto extension_names = std::vector<std::string>{};
     if (platform_ != nullptr) {
-      extension_names = platform_->vulkan_instance_extensions();
+      extension_names = platform_->vulkan_instance_extensions(window_);
       if (extension_names.empty()) {
-        return std::unexpected(render_error{"the platform cannot make Vulkan surfaces"});
+        return std::unexpected(render_error{"the window was not created for Vulkan"});
       }
       for (auto const &name : extension_names) {
         extensions.push_back(name.c_str());

@@ -150,9 +150,9 @@ public:
   // window or the platform has no Metal.
   [[nodiscard]] auto metal_layer(window_id window) -> void *;
 
-  // The instance extensions that Vulkan needs to make surfaces for windows. Empty when the
-  // platform cannot present Vulkan frames in windows.
-  [[nodiscard]] auto vulkan_instance_extensions() -> std::vector<std::string>;
+  // The instance extensions that Vulkan needs to make surfaces for `window`. Empty when the window
+  // was not created with `graphics_api::vulkan` or the platform cannot present Vulkan frames.
+  [[nodiscard]] auto vulkan_instance_extensions(window_id window) -> std::vector<std::string>;
   // Makes a VkSurfaceKHR for a window created with `graphics_api::vulkan`. `instance` is a
   // VkInstance. Destroy the surface with `destroy_vulkan_surface` before the instance and the
   // window.

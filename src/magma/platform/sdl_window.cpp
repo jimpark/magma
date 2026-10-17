@@ -251,7 +251,12 @@ auto platform::metal_layer(window_id window) -> void * {
   return SDL_Metal_GetLayer(view->second.get());
 }
 
-auto platform::vulkan_instance_extensions() -> std::vector<std::string> {
+auto platform::vulkan_instance_extensions(window_id window) -> std::vector<std::string> {
+  auto const found = impl_->windows.find(window);
+  if (found == impl_->windows.end() ||
+      (SDL_GetWindowFlags(found->second.get()) & SDL_WINDOW_VULKAN) == 0) {
+    return {};
+  }
   auto count = Uint32{0};
   auto const *const names = SDL_Vulkan_GetInstanceExtensions(&count);
   auto result = std::vector<std::string>{};
