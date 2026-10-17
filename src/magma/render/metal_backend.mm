@@ -22,6 +22,8 @@
 #include "backend.h"
 #include "glyph_atlas.h"
 #include "gpu_scene.h"
+#include "pixels.h"
+#include "scene_walk.h"
 
 #if !__has_feature(objc_arc)
 #error "metal_backend.mm must be compiled with -fobjc-arc"
@@ -243,14 +245,6 @@ auto describe(NSError *error) -> std::string {
                       : std::string{error.localizedDescription.UTF8String};
 }
 
-auto intersect(pixel_rect a, pixel_rect b) -> pixel_rect {
-  auto const left = std::max(a.x, b.x);
-  auto const top = std::max(a.y, b.y);
-  auto const right = std::min(a.x + a.width, b.x + b.width);
-  auto const bottom = std::min(a.y + a.height, b.y + b.height);
-  return {left, top, std::max(0, right - left), std::max(0, bottom - top)};
-}
-
 // One render target: a texture and the frame device pixels it covers.
 struct pass_target {
   id<MTLTexture> texture;
@@ -428,14 +422,7 @@ public:
     }
     auto const width = static_cast<int>(frame_.width);
     auto const height = static_cast<int>(frame_.height);
-    auto pixels = std::vector<std::uint8_t>{};
-    pixels.reserve(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4);
-    for (auto const pixel : read_pixels(0, 0, width, height)) {
-      auto const color = unpremultiply(pixel);
-      pixels.insert(pixels.end(), {color.r, color.g, color.b, color.a});
-    }
-    return basalt::raster_image::create(static_cast<std::uint32_t>(width),
-                                        static_cast<std::uint32_t>(height), std::move(pixels));
+    return to_raster_image(read_pixels(0, 0, width, height), width, height);
   }
 
 private:
@@ -541,17 +528,10 @@ private:
     if (texture == nil) {
       return nil;
     }
-    auto premultiplied = image.pixels();
-    for (auto pixel = std::size_t{0}; pixel < premultiplied.size(); pixel += 4) {
-      auto const alpha = std::uint32_t{premultiplied[pixel + 3]};
-      for (auto channel = std::size_t{0}; channel < 3; ++channel) {
-        premultiplied[pixel + channel] =
-            static_cast<std::uint8_t>((premultiplied[pixel + channel] * alpha + 127) / 255);
-      }
-    }
+    auto const texels = premultiplied_rgba(image.pixels());
     [texture replaceRegion:MTLRegionMake2D(0, 0, image.width(), image.height())
                mipmapLevel:0
-                 withBytes:premultiplied.data()
+                 withBytes:texels.data()
                bytesPerRow:static_cast<NSUInteger>(width) * 4];
     return texture;
   }
@@ -575,108 +555,124 @@ private:
     return buffer;
   }
 
-  auto encode(id<MTLCommandBuffer> commands, gpu_scene const &scene,
-              std::vector<id<MTLTexture>> const &images, id<MTLBuffer> instances,
-              id<MTLTexture> target, frame_request const &request) -> void {
-    auto const root = pass_target{target, {0, 0, request.width, request.height}};
-    auto stack = std::vector<pass_target>{};
-    auto current = root;
-    id<MTLRenderCommandEncoder> encoder = nil;
-    auto scissor = pixel_rect{};
+  // The Metal side of `walk_scene`: encodes the draws of one frame into render passes.
+  class scene_encoder {
+  public:
+    scene_encoder(metal_backend &owner, id<MTLCommandBuffer> commands, id<MTLBuffer> instances,
+                  std::vector<id<MTLTexture>> const &images, MTLClearColor clear, bool full_redraw)
+        : owner_(owner), commands_(commands), instances_(instances), images_(images), clear_(clear),
+          full_redraw_(full_redraw) {}
 
-    auto const open = [&](pass_target const &pass, MTLLoadAction load, MTLClearColor clear) {
+    auto start(pass_target const &root) -> void {
+      open(root, full_redraw_ ? MTLLoadActionClear : MTLLoadActionLoad, clear_);
+    }
+
+    auto set_scissor(pass_target const &target, pixel_rect scissor) -> void {
+      [encoder_ setScissorRect:MTLScissorRect{static_cast<NSUInteger>(scissor.x - target.area.x),
+                                              static_cast<NSUInteger>(scissor.y - target.area.y),
+                                              static_cast<NSUInteger>(scissor.width),
+                                              static_cast<NSUInteger>(scissor.height)}];
+    }
+
+    auto draw_clear(std::size_t area_index) -> std::expected<void, render_error> {
+      [encoder_ setRenderPipelineState:owner_.copy_pipeline_];
+      [encoder_ setFragmentTexture:owner_.empty_texture_ atIndex:0];
+      draw_instances(static_cast<std::uint32_t>(area_index), 1);
+      [encoder_ setRenderPipelineState:owner_.blend_pipeline_];
+      return {};
+    }
+
+    auto draw(draw_batch const &batch) -> std::expected<void, render_error> {
+      [encoder_ setFragmentTexture:texture_for(batch.texture) atIndex:0];
+      draw_instances(batch.first, batch.count);
+      return {};
+    }
+
+    auto begin_layer(pass_target const &, std::uint32_t index, pixel_rect area)
+        -> std::expected<pass_target, render_error> {
+      [encoder_ endEncoding];
+      auto const layer = pass_target{owner_.layer_texture(index, area), area};
+      open(layer, MTLLoadActionClear, MTLClearColorMake(0, 0, 0, 0));
+      return layer;
+    }
+
+    auto end_layer(pass_target const &, pass_target const &parent) -> void {
+      [encoder_ endEncoding];
+      open(parent, MTLLoadActionLoad, clear_);
+    }
+
+    auto finish(pass_target const &) -> void {
+      if (encoder_ != nil) {
+        [encoder_ endEncoding];
+        encoder_ = nil;
+      }
+    }
+
+  private:
+    auto open(pass_target const &pass, MTLLoadAction load, MTLClearColor clear) -> void {
       auto *const descriptor = [MTLRenderPassDescriptor renderPassDescriptor];
       descriptor.colorAttachments[0].texture = pass.texture;
       descriptor.colorAttachments[0].loadAction = load;
       descriptor.colorAttachments[0].clearColor = clear;
       descriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
-      encoder = [commands renderCommandEncoderWithDescriptor:descriptor];
-      [encoder setRenderPipelineState:blend_pipeline_];
-      [encoder setVertexBuffer:instances offset:0 atIndex:0];
-      [encoder setFragmentBuffer:instances offset:0 atIndex:0];
+      encoder_ = [commands_ renderCommandEncoderWithDescriptor:descriptor];
+      [encoder_ setRenderPipelineState:owner_.blend_pipeline_];
+      [encoder_ setVertexBuffer:instances_ offset:0 atIndex:0];
+      [encoder_ setFragmentBuffer:instances_ offset:0 atIndex:0];
       auto const uniforms = target_uniforms{
           {static_cast<float>(pass.area.x), static_cast<float>(pass.area.y)},
           {static_cast<float>(pass.area.width), static_cast<float>(pass.area.height)}};
-      [encoder setVertexBytes:&uniforms length:sizeof(uniforms) atIndex:1];
-      [encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:1];
-      [encoder setFragmentSamplerState:sampler_ atIndex:0];
-    };
-    // Limits drawing to the damaged area inside the current target. False when they do not meet.
-    auto const restrict_to = [&](pixel_rect area) {
-      scissor = intersect(area, current.area);
-      if (scissor.width <= 0 || scissor.height <= 0) {
-        return false;
-      }
-      [encoder setScissorRect:MTLScissorRect{static_cast<NSUInteger>(scissor.x - current.area.x),
-                                             static_cast<NSUInteger>(scissor.y - current.area.y),
-                                             static_cast<NSUInteger>(scissor.width),
-                                             static_cast<NSUInteger>(scissor.height)}];
-      return true;
-    };
-    auto const draw = [&](std::uint32_t first, std::uint32_t count) {
+      [encoder_ setVertexBytes:&uniforms length:sizeof(uniforms) atIndex:1];
+      [encoder_ setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:1];
+      [encoder_ setFragmentSamplerState:owner_.sampler_ atIndex:0];
+    }
+
+    auto draw_instances(std::uint32_t first, std::uint32_t count) -> void {
       auto const offset = static_cast<NSUInteger>(first) * sizeof(gpu_instance);
-      [encoder setVertexBufferOffset:offset atIndex:0];
-      [encoder setFragmentBufferOffset:offset atIndex:0];
-      [encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip
-                  vertexStart:0
-                  vertexCount:4
-                instanceCount:count];
-    };
-    auto const texture_for = [&](texture_ref texture) -> id<MTLTexture> {
+      [encoder_ setVertexBufferOffset:offset atIndex:0];
+      [encoder_ setFragmentBufferOffset:offset atIndex:0];
+      [encoder_ drawPrimitives:MTLPrimitiveTypeTriangleStrip
+                   vertexStart:0
+                   vertexCount:4
+                 instanceCount:count];
+    }
+
+    auto texture_for(texture_ref texture) const -> id<MTLTexture> {
       switch (texture.from) {
       case texture_ref::source::atlas_page:
-        return page_textures_[texture.index].second;
+        return owner_.page_textures_[texture.index].second;
       case texture_ref::source::image:
-        return images[texture.index];
+        return images_[texture.index];
       case texture_ref::source::layer:
-        return layer_textures_[texture.index];
+        return owner_.layer_textures_[texture.index];
       case texture_ref::source::none:
         break;
       }
-      return empty_texture_;
-    };
+      return owner_.empty_texture_;
+    }
 
-    auto const clear = request.clear;
-    auto const alpha = clear.a / 255.0;
-    auto const clear_color = MTLClearColorMake(clear.r / 255.0 * alpha, clear.g / 255.0 * alpha,
-                                               clear.b / 255.0 * alpha, alpha);
-    for (auto area_index = std::size_t{0}; area_index < request.areas.size(); ++area_index) {
-      auto const area = request.areas[area_index];
-      if (encoder == nil) {
-        open(root, request.full_redraw ? MTLLoadActionClear : MTLLoadActionLoad, clear_color);
-      }
-      auto visible = restrict_to(area);
-      if (visible && !request.full_redraw) {
-        [encoder setRenderPipelineState:copy_pipeline_];
-        [encoder setFragmentTexture:empty_texture_ atIndex:0];
-        draw(static_cast<std::uint32_t>(area_index), 1);
-        [encoder setRenderPipelineState:blend_pipeline_];
-      }
-      for (auto const &op : scene.ops) {
-        if (auto const *const batch = std::get_if<draw_batch>(&op)) {
-          if (visible) {
-            [encoder setFragmentTexture:texture_for(batch->texture) atIndex:0];
-            draw(batch->first, batch->count);
-          }
-        } else if (auto const *const begin = std::get_if<begin_layer_pass>(&op)) {
-          [encoder endEncoding];
-          stack.push_back(current);
-          auto const layer_area = scene.layers[begin->layer].area;
-          current = {layer_texture(begin->layer, layer_area), layer_area};
-          open(current, MTLLoadActionClear, MTLClearColorMake(0, 0, 0, 0));
-          visible = restrict_to(area);
-        } else if (!stack.empty()) {
-          [encoder endEncoding];
-          current = stack.back();
-          stack.pop_back();
-          open(current, MTLLoadActionLoad, clear_color);
-          visible = restrict_to(area);
-        }
-      }
-    }
-    if (encoder != nil) {
-      [encoder endEncoding];
-    }
+    metal_backend &owner_;
+    id<MTLCommandBuffer> commands_;
+    id<MTLBuffer> instances_;
+    std::vector<id<MTLTexture>> const &images_;
+    MTLClearColor clear_;
+    bool full_redraw_;
+    id<MTLRenderCommandEncoder> encoder_ = nil;
+  };
+
+  auto encode(id<MTLCommandBuffer> commands, gpu_scene const &scene,
+              std::vector<id<MTLTexture>> const &images, id<MTLBuffer> instances,
+              id<MTLTexture> target, frame_request const &request) -> void {
+    auto const clear = premultiplied(request.clear);
+    auto encoder = scene_encoder{*this,
+                                 commands,
+                                 instances,
+                                 images,
+                                 MTLClearColorMake(clear[0], clear[1], clear[2], clear[3]),
+                                 request.full_redraw};
+    // Metal reports no errors while encoding.
+    (void)walk_scene(scene, request, pass_target{target, {0, 0, request.width, request.height}},
+                     encoder);
   }
 
   auto copy_to_drawable(id<MTLCommandBuffer> commands, id<MTLTexture> drawable) -> void {

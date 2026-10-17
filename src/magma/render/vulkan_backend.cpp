@@ -22,6 +22,9 @@
 #include "environment.h"
 #include "glyph_atlas.h"
 #include "gpu_scene.h"
+#include "image_cache.h"
+#include "pixels.h"
+#include "scene_walk.h"
 
 // Compiled from shaders/gpu.vert and shaders/gpu.frag at build time.
 #include "gpu_frag_spirv.h"
@@ -129,14 +132,6 @@ template <class handle> auto own(VkDevice device, handle value) -> owned<handle>
 auto failure(std::string_view what, VkResult result) -> render_error {
   return {"Vulkan could not " + std::string{what} + " (VkResult " +
           std::to_string(static_cast<int>(result)) + ")"};
-}
-
-auto intersect(pixel_rect a, pixel_rect b) -> pixel_rect {
-  auto const left = std::max(a.x, b.x);
-  auto const top = std::max(a.y, b.y);
-  auto const right = std::min(a.x + a.width, b.x + b.width);
-  auto const bottom = std::min(a.y + a.height, b.y + b.height);
-  return {left, top, std::max(0, right - left), std::max(0, bottom - top)};
 }
 
 auto software_devices_allowed() -> bool {
@@ -446,14 +441,7 @@ public:
     if (pixels.empty()) {
       return nullptr;
     }
-    auto bytes = std::vector<std::uint8_t>{};
-    bytes.reserve(pixels.size() * 4);
-    for (auto const pixel : pixels) {
-      auto const color = unpremultiply(pixel);
-      bytes.insert(bytes.end(), {color.r, color.g, color.b, color.a});
-    }
-    return basalt::raster_image::create(static_cast<std::uint32_t>(width),
-                                        static_cast<std::uint32_t>(height), std::move(bytes));
+    return to_raster_image(pixels, width, height);
   }
 
 private:
@@ -1155,27 +1143,10 @@ private:
   // The images of the scene, in scene order. Each image is copied to the GPU once.
   auto upload_images(frame_slot &slot, VkCommandBuffer commands, gpu_scene const &scene)
       -> std::expected<std::vector<std::shared_ptr<gpu_image>>, render_error> {
-    if (images_.size() + scene.images.size() > image_cache_limit) {
-      for (auto &entry : images_) {
-        retire(std::move(entry.second));
-      }
-      images_.clear();
-    }
-    auto result = std::vector<std::shared_ptr<gpu_image>>{};
-    result.reserve(scene.images.size());
-    for (auto const *const source : scene.images) {
-      auto &cached = images_[source->id()];
-      if (cached == nullptr) {
-        auto uploaded = upload_image(slot, commands, *source);
-        if (!uploaded) {
-          images_.erase(source->id());
-          return std::unexpected(std::move(uploaded.error()));
-        }
-        cached = std::move(*uploaded);
-      }
-      result.push_back(cached);
-    }
-    return result;
+    return images_.textures_for(
+        scene.images,
+        [&](basalt::raster_image const &image) { return upload_image(slot, commands, image); },
+        [this](std::shared_ptr<gpu_image> texture) { retire(std::move(texture)); });
   }
 
   auto upload_image(frame_slot &slot, VkCommandBuffer commands, basalt::raster_image const &source)
@@ -1188,19 +1159,12 @@ private:
     if (!created) {
       return std::unexpected(std::move(created.error()));
     }
-    auto premultiplied = source.pixels();
-    for (auto pixel = std::size_t{0}; pixel < premultiplied.size(); pixel += 4) {
-      auto const alpha = std::uint32_t{premultiplied[pixel + 3]};
-      for (auto channel = std::size_t{0}; channel < 3; ++channel) {
-        premultiplied[pixel + channel] =
-            static_cast<std::uint8_t>((premultiplied[pixel + channel] * alpha + 127) / 255);
-      }
-    }
-    auto staged = reserve_staging(slot, premultiplied.size());
+    auto const texels = premultiplied_rgba(source.pixels());
+    auto staged = reserve_staging(slot, texels.size());
     if (!staged) {
       return std::unexpected(std::move(staged.error()));
     }
-    std::memcpy(staged->second, premultiplied.data(), premultiplied.size());
+    std::memcpy(staged->second, texels.data(), texels.size());
     copy_to_image(commands, slot.staging.buffer.get(), staged->first, **created, 0, 0, width,
                   height, width);
     return std::move(*created);
@@ -1335,23 +1299,70 @@ private:
     }
   }
 
-  auto encode(frame_slot &slot, gpu_scene const &scene,
-              std::vector<std::shared_ptr<gpu_image>> const &images, frame_request const &request)
-      -> std::expected<void, render_error> {
-    auto const commands = slot.commands;
-    if (frame_->layout == VK_IMAGE_LAYOUT_UNDEFINED) {
-      barrier(commands, frame_->image.get(), VK_IMAGE_LAYOUT_UNDEFINED,
-              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-      frame_->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    }
-    auto const root = pass_target{frame_.get(), {0, 0, request.width, request.height}, false};
-    auto stack = std::vector<pass_target>{};
-    auto current = root;
-    auto open = false;
-    auto scissor = pixel_rect{};
-    auto failed = std::optional<render_error>{};
+  // The Vulkan side of `walk_scene`: records the draws of one frame into render passes.
+  class scene_encoder {
+  public:
+    scene_encoder(vulkan_backend &owner, frame_slot &slot,
+                  std::vector<std::shared_ptr<gpu_image>> const &images, VkClearValue clear,
+                  bool full_redraw)
+        : owner_(owner), slot_(slot), commands_(slot.commands), images_(images), clear_(clear),
+          full_redraw_(full_redraw) {}
 
-    auto const open_pass = [&](pass_target const &target, VkRenderPass pass, VkClearValue clear) {
+    auto start(pass_target const &root) -> void {
+      open(root,
+           full_redraw_ ? owner_.pipelines_.root_clear.get() : owner_.pipelines_.root_load.get(),
+           clear_);
+    }
+
+    auto set_scissor(pass_target const &target, pixel_rect scissor) -> void {
+      auto const rect = VkRect2D{
+          {scissor.x - target.area.x, scissor.y - target.area.y},
+          {static_cast<std::uint32_t>(scissor.width), static_cast<std::uint32_t>(scissor.height)}};
+      vkCmdSetScissor(commands_, 0, 1, &rect);
+    }
+
+    auto draw_clear(std::size_t area_index) -> std::expected<void, render_error> {
+      vkCmdBindPipeline(commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, owner_.pipelines_.copy.get());
+      if (auto const bound = bind_texture({}); !bound) {
+        return bound;
+      }
+      vkCmdDraw(commands_, 4, 1, 0, static_cast<std::uint32_t>(area_index));
+      vkCmdBindPipeline(commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, owner_.pipelines_.blend.get());
+      return {};
+    }
+
+    auto draw(draw_batch const &batch) -> std::expected<void, render_error> {
+      if (auto const bound = bind_texture(batch.texture); !bound) {
+        return bound;
+      }
+      vkCmdDraw(commands_, 4, batch.count, 0, batch.first);
+      return {};
+    }
+
+    auto begin_layer(pass_target const &parent, std::uint32_t index, pixel_rect area)
+        -> std::expected<pass_target, render_error> {
+      close(parent);
+      auto layer = owner_.layer_image(index, area);
+      if (!layer) {
+        return std::unexpected(std::move(layer.error()));
+      }
+      auto const target = pass_target{*layer, area, true};
+      open(target, owner_.pipelines_.layer_begin.get(), VkClearValue{});
+      return target;
+    }
+
+    auto end_layer(pass_target const &layer, pass_target const &parent) -> void {
+      close(layer);
+      open(parent,
+           parent.is_layer ? owner_.pipelines_.layer_resume.get()
+                           : owner_.pipelines_.root_load.get(),
+           clear_);
+    }
+
+    auto finish(pass_target const &target) -> void { close(target); }
+
+  private:
+    auto open(pass_target const &target, VkRenderPass pass, VkClearValue clear) -> void {
       auto const begin =
           VkRenderPassBeginInfo{.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                                 .renderPass = pass,
@@ -1361,129 +1372,74 @@ private:
                                                 static_cast<std::uint32_t>(target.area.height)}},
                                 .clearValueCount = 1,
                                 .pClearValues = &clear};
-      vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
-      vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.blend.get());
-      auto const set = slot.instance_set;
-      vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.layout.get(), 0,
-                              1, &set, 0, nullptr);
+      vkCmdBeginRenderPass(commands_, &begin, VK_SUBPASS_CONTENTS_INLINE);
+      vkCmdBindPipeline(commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, owner_.pipelines_.blend.get());
+      auto const set = slot_.instance_set;
+      vkCmdBindDescriptorSets(commands_, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              owner_.pipelines_.layout.get(), 0, 1, &set, 0, nullptr);
       auto const uniforms = target_uniforms{
           {static_cast<float>(target.area.x), static_cast<float>(target.area.y)},
           {static_cast<float>(target.area.width), static_cast<float>(target.area.height)}};
-      vkCmdPushConstants(commands, pipelines_.layout.get(),
+      vkCmdPushConstants(commands_, owner_.pipelines_.layout.get(),
                          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                          sizeof(uniforms), &uniforms);
       auto const viewport = VkViewport{
           0.0F, 0.0F, static_cast<float>(target.area.width), static_cast<float>(target.area.height),
           0.0F, 1.0F};
-      vkCmdSetViewport(commands, 0, 1, &viewport);
-      open = true;
-    };
-    auto const close_pass = [&] {
-      vkCmdEndRenderPass(commands);
-      current.image->layout = current.is_layer ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-                                               : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      open = false;
-    };
-    // Limits drawing to the damaged area inside the current target. False when they do not meet.
-    auto const restrict_to = [&](pixel_rect area) {
-      scissor = intersect(area, current.area);
-      if (scissor.width <= 0 || scissor.height <= 0) {
-        return false;
-      }
-      auto const rect = VkRect2D{
-          {scissor.x - current.area.x, scissor.y - current.area.y},
-          {static_cast<std::uint32_t>(scissor.width), static_cast<std::uint32_t>(scissor.height)}};
-      vkCmdSetScissor(commands, 0, 1, &rect);
-      return true;
-    };
-    auto const draw = [&](std::uint32_t first, std::uint32_t count) {
-      vkCmdDraw(commands, 4, count, 0, first);
-    };
-    auto const bind_texture = [&](texture_ref texture) {
+      vkCmdSetViewport(commands_, 0, 1, &viewport);
+    }
+
+    auto close(pass_target const &target) -> void {
+      vkCmdEndRenderPass(commands_);
+      target.image->layout = target.is_layer ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                                             : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    }
+
+    auto bind_texture(texture_ref texture) -> std::expected<void, render_error> {
       auto const &image = [&]() -> gpu_image const & {
         switch (texture.from) {
         case texture_ref::source::atlas_page:
-          return *page_images_[texture.index].second;
+          return *owner_.page_images_[texture.index].second;
         case texture_ref::source::image:
-          return *images[texture.index];
+          return *images_[texture.index];
         case texture_ref::source::layer:
-          return *layers_[texture.index];
+          return *owner_.layers_[texture.index];
         case texture_ref::source::none:
           break;
         }
-        return *empty_;
+        return *owner_.empty_;
       }();
-      auto set = texture_set(slot, texture, image);
+      auto set = owner_.texture_set(slot_, texture, image);
       if (!set) {
-        failed = std::move(set.error());
-        return;
+        return std::unexpected(std::move(set.error()));
       }
-      vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.layout.get(), 1,
-                              1, &*set, 0, nullptr);
-    };
+      vkCmdBindDescriptorSets(commands_, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              owner_.pipelines_.layout.get(), 1, 1, &*set, 0, nullptr);
+      return {};
+    }
 
-    auto const clear = request.clear;
-    auto const alpha = static_cast<float>(clear.a) / 255.0F;
-    auto root_clear = VkClearValue{};
-    root_clear.color = {{static_cast<float>(clear.r) / 255.0F * alpha,
-                         static_cast<float>(clear.g) / 255.0F * alpha,
-                         static_cast<float>(clear.b) / 255.0F * alpha, alpha}};
-    auto const transparent = VkClearValue{};
+    vulkan_backend &owner_;
+    frame_slot &slot_;
+    VkCommandBuffer commands_;
+    std::vector<std::shared_ptr<gpu_image>> const &images_;
+    VkClearValue clear_;
+    bool full_redraw_;
+  };
 
-    for (auto area_index = std::size_t{0}; area_index < request.areas.size() && !failed;
-         ++area_index) {
-      auto const area = request.areas[area_index];
-      if (!open) {
-        open_pass(root,
-                  request.full_redraw ? pipelines_.root_clear.get() : pipelines_.root_load.get(),
-                  root_clear);
-      }
-      auto visible = restrict_to(area);
-      if (visible && !request.full_redraw) {
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.copy.get());
-        bind_texture({});
-        draw(static_cast<std::uint32_t>(area_index), 1);
-        vkCmdBindPipeline(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines_.blend.get());
-      }
-      for (auto const &op : scene.ops) {
-        if (failed) {
-          break;
-        }
-        if (auto const *const batch = std::get_if<draw_batch>(&op)) {
-          if (visible) {
-            bind_texture(batch->texture);
-            draw(batch->first, batch->count);
-          }
-        } else if (auto const *const begin = std::get_if<begin_layer_pass>(&op)) {
-          close_pass();
-          stack.push_back(current);
-          auto const layer_area = scene.layers[begin->layer].area;
-          auto layer = layer_image(begin->layer, layer_area);
-          if (!layer) {
-            failed = std::move(layer.error());
-            break;
-          }
-          current = {*layer, layer_area, true};
-          open_pass(current, pipelines_.layer_begin.get(), transparent);
-          visible = restrict_to(area);
-        } else if (!stack.empty()) {
-          close_pass();
-          current = stack.back();
-          stack.pop_back();
-          open_pass(current,
-                    current.is_layer ? pipelines_.layer_resume.get() : pipelines_.root_load.get(),
-                    root_clear);
-          visible = restrict_to(area);
-        }
-      }
+  auto encode(frame_slot &slot, gpu_scene const &scene,
+              std::vector<std::shared_ptr<gpu_image>> const &images, frame_request const &request)
+      -> std::expected<void, render_error> {
+    if (frame_->layout == VK_IMAGE_LAYOUT_UNDEFINED) {
+      barrier(slot.commands, frame_->image.get(), VK_IMAGE_LAYOUT_UNDEFINED,
+              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+      frame_->layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
-    if (open) {
-      close_pass();
-    }
-    if (failed) {
-      return std::unexpected(std::move(*failed));
-    }
-    return {};
+    auto clear = VkClearValue{};
+    std::ranges::copy(premultiplied(request.clear), std::begin(clear.color.float32));
+    auto encoder = scene_encoder{*this, slot, images, clear, request.full_redraw};
+    return walk_scene(scene, request,
+                      pass_target{frame_.get(), {0, 0, request.width, request.height}, false},
+                      encoder);
   }
 
   // ---- Presentation ----
@@ -1731,7 +1687,7 @@ private:
   gpu_scene_builder builder_;
   // By atlas page index: the page's id and its image.
   std::vector<std::pair<std::uint64_t, std::shared_ptr<gpu_image>>> page_images_;
-  std::unordered_map<std::uint64_t, std::shared_ptr<gpu_image>> images_;
+  image_cache<std::shared_ptr<gpu_image>> images_{image_cache_limit};
   // By scene layer index.
   std::vector<std::shared_ptr<gpu_image>> layers_;
 };

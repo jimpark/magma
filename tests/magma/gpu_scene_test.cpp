@@ -6,6 +6,7 @@
 #include "magma/render/blend2d_painter.h"
 #include "magma/render/glyph_atlas.h"
 #include "magma/render/gpu_scene.h"
+#include "magma/render/scene_walk.h"
 
 #include <blend2d/blend2d.h>
 
@@ -19,6 +20,7 @@
 #include <memory>
 #include <numbers>
 #include <regex>
+#include <span>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -137,6 +139,132 @@ TEST_CASE("a clip limits the quad and travels with each instance", "[gpu]") {
   // A clip needs no new batch.
   REQUIRE(scene.ops.size() == 1);
   CHECK(batch(scene.ops[0]).count == 2);
+}
+
+TEST_CASE("each instance maps device pixels back through the transform in force when it was drawn",
+          "[gpu]") {
+  auto const result = build({
+      fill_rect_command{{{0, 0}, {4, 4}}, red},
+      push_transform_command{affine_transform::scaling(2, 2)},
+      fill_rect_command{{{0, 0}, {4, 4}}, red},
+      push_transform_command{affine_transform::scaling(2, 2)},
+      fill_rect_command{{{0, 0}, {4, 4}}, red},
+      pop_transform_command{},
+      fill_rect_command{{{0, 0}, {4, 4}}, red},
+      pop_transform_command{},
+      fill_rect_command{{{0, 0}, {4, 4}}, red},
+  });
+  auto const &scene = *result->scene;
+  REQUIRE(scene.instances.size() == 6);
+  auto const scales = std::array{1.0F, 0.5F, 0.25F, 0.5F, 1.0F};
+  for (auto index = std::size_t{0}; index < scales.size(); ++index) {
+    CHECK(scene.instances[index + 1].to_local_x == std::array{scales[index], 0.0F, 0.0F, 0.0F});
+    CHECK(scene.instances[index + 1].to_local_y == std::array{0.0F, scales[index], 0.0F, 0.0F});
+  }
+}
+
+TEST_CASE("a batch covers the quads of all its instances", "[gpu]") {
+  auto const result = build(
+      {fill_rect_command{{{2, 3}, {4, 5}}, red}, fill_rect_command{{{50, 60}, {10, 10}}, red}});
+  auto const &scene = *result->scene;
+  REQUIRE(scene.ops.size() == 1);
+  auto const bounds = batch(scene.ops[0]).bounds;
+  // Each rect has one pixel around it for the antialiased edge.
+  CHECK(bounds.x == 1);
+  CHECK(bounds.y == 2);
+  CHECK(bounds.width == 60);
+  CHECK(bounds.height == 69);
+}
+
+TEST_CASE("a layer begin names the operation after its end, also when layers nest", "[gpu]") {
+  auto const result = build({
+      begin_layer_command{128},
+      begin_layer_command{128},
+      fill_rect_command{{{0, 0}, {10, 10}}, red},
+      end_layer_command{},
+      end_layer_command{},
+  });
+  auto const &ops = result->scene->ops;
+  REQUIRE(ops.size() == 7);
+  auto const &outer = std::get<begin_layer_pass>(ops[0]);
+  auto const &inner = std::get<begin_layer_pass>(ops[1]);
+  // The composite of a layer comes after its end, in the pass below.
+  CHECK(inner.end == 4);
+  CHECK(outer.end == 6);
+  CHECK(std::holds_alternative<end_layer_pass>(ops[inner.end - 1]));
+  CHECK(std::holds_alternative<end_layer_pass>(ops[outer.end - 1]));
+}
+
+namespace {
+
+struct test_target {
+  pixel_rect area;
+};
+
+auto describe(pixel_rect area) -> std::string {
+  return std::to_string(area.x) + " " + std::to_string(area.y) + " " + std::to_string(area.width) +
+         " " + std::to_string(area.height);
+}
+
+struct recording_hooks {
+  std::vector<std::string> events;
+
+  auto start(test_target const &) -> void { events.emplace_back("start"); }
+  auto set_scissor(test_target const &, pixel_rect scissor) -> void {
+    events.push_back("scissor " + describe(scissor));
+  }
+  auto draw_clear(std::size_t area_index) -> std::expected<void, magma::render_error> {
+    events.push_back("clear " + std::to_string(area_index));
+    return {};
+  }
+  auto draw(draw_batch const &drawn) -> std::expected<void, magma::render_error> {
+    events.push_back("draw " + std::to_string(drawn.first) + " " + std::to_string(drawn.count));
+    return {};
+  }
+  auto begin_layer(test_target const &, std::uint32_t index, pixel_rect area)
+      -> std::expected<test_target, magma::render_error> {
+    events.push_back("begin " + std::to_string(index));
+    return test_target{area};
+  }
+  auto end_layer(test_target const &, test_target const &) -> void { events.emplace_back("end"); }
+  auto finish(test_target const &) -> void { events.emplace_back("finish"); }
+};
+
+} // namespace
+
+TEST_CASE("the walk skips batches and layer passes that cannot reach a damaged area", "[gpu]") {
+  auto const commands = paint_commands{
+      fill_rect_command{{{0, 0}, {10, 10}}, red},
+      push_clip_command{{{70, 70}, {30, 30}}},
+      begin_layer_command{128},
+      fill_rect_command{{{80, 80}, {10, 10}}, red},
+      end_layer_command{},
+      pop_clip_command{},
+  };
+  auto builder = gpu_scene_builder{};
+  auto atlas = glyph_atlas{};
+  auto const areas = std::array{pixel_rect{0, 0, 20, 20}, pixel_rect{70, 70, 30, 30}};
+  auto const &scene = builder.build(commands, areas, 1, white, atlas);
+  auto const request = magma::render::frame_request{
+      .commands = commands, .areas = areas, .full_redraw = false, .width = 100, .height = 100};
+  auto hooks = recording_hooks{};
+  REQUIRE(magma::render::walk_scene(scene, request, test_target{{0, 0, 100, 100}}, hooks));
+  // Instances 0 and 1 clear the areas; 2 is the first rect, 3 is in the layer, 4 is its composite.
+  CHECK(hooks.events == std::vector<std::string>{
+                            "start",
+                            "scissor 0 0 20 20",
+                            "clear 0",
+                            "draw 2 1",
+                            "scissor 70 70 30 30",
+                            "clear 1",
+                            "begin 0",
+                            "scissor 70 70 30 30",
+                            "draw 3 1",
+                            "end",
+                            "scissor 70 70 30 30",
+                            "draw 4 1",
+                            "finish",
+                        });
 }
 
 TEST_CASE("a change of texture starts a new batch", "[gpu]") {

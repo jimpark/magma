@@ -100,6 +100,8 @@ struct renderer::impl {
   float scale = 1;
   bool full_redraw = true;
   std::uint64_t frame = 0;
+  // Kept between frames so that a frame does not allocate.
+  std::vector<pixel_rect> areas;
   std::shared_ptr<presentation_log> presentations = std::make_shared<presentation_log>();
 
   [[nodiscard]] auto device_width() const -> int {
@@ -174,7 +176,8 @@ auto renderer::render(basalt::paint_commands const &commands, std::span<basalt::
   auto const width = impl_->device_width();
   auto const height = impl_->device_height();
 
-  auto areas = std::vector<pixel_rect>{};
+  auto &areas = impl_->areas;
+  areas.clear();
   if (impl_->full_redraw) {
     areas.push_back({0, 0, width, height});
   } else {

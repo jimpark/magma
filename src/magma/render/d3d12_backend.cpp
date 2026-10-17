@@ -26,6 +26,9 @@
 #include "environment.h"
 #include "glyph_atlas.h"
 #include "gpu_scene.h"
+#include "image_cache.h"
+#include "pixels.h"
+#include "scene_walk.h"
 
 // The shader source from shaders/gpu.hlsl, as `hlsl_source`.
 #include "gpu_hlsl.h"
@@ -55,14 +58,6 @@ auto failure(std::string_view what, HRESULT result) -> render_error {
 
 auto align_up(std::size_t value, std::size_t alignment) -> std::size_t {
   return (value + alignment - 1) / alignment * alignment;
-}
-
-auto intersect(pixel_rect a, pixel_rect b) -> pixel_rect {
-  auto const left = std::max(a.x, b.x);
-  auto const top = std::max(a.y, b.y);
-  auto const right = std::min(a.x + a.width, b.x + b.width);
-  auto const bottom = std::min(a.y + a.height, b.y + b.height);
-  return {left, top, std::max(0, right - left), std::max(0, bottom - top)};
 }
 
 auto warp_requested() -> bool { return environment_equals("MAGMA_D3D12_ADAPTER", "warp"); }
@@ -327,14 +322,7 @@ public:
     if (pixels.empty()) {
       return nullptr;
     }
-    auto bytes = std::vector<std::uint8_t>{};
-    bytes.reserve(pixels.size() * 4);
-    for (auto const pixel : pixels) {
-      auto const color = unpremultiply(pixel);
-      bytes.insert(bytes.end(), {color.r, color.g, color.b, color.a});
-    }
-    return basalt::raster_image::create(static_cast<std::uint32_t>(width),
-                                        static_cast<std::uint32_t>(height), std::move(bytes));
+    return to_raster_image(pixels, width, height);
   }
 
 private:
@@ -684,27 +672,9 @@ private:
   // The textures of the scene's images, in scene order. Each image is copied to the GPU once.
   auto upload_images(frame_slot &slot, gpu_scene const &scene)
       -> std::expected<std::vector<std::shared_ptr<gpu_image>>, render_error> {
-    if (images_.size() + scene.images.size() > image_cache_limit) {
-      for (auto &entry : images_) {
-        retire(std::move(entry.second));
-      }
-      images_.clear();
-    }
-    auto result = std::vector<std::shared_ptr<gpu_image>>{};
-    result.reserve(scene.images.size());
-    for (auto const *const source : scene.images) {
-      auto &cached = images_[source->id()];
-      if (cached == nullptr) {
-        auto uploaded = upload_image(slot, *source);
-        if (!uploaded) {
-          images_.erase(source->id());
-          return std::unexpected(std::move(uploaded.error()));
-        }
-        cached = std::move(*uploaded);
-      }
-      result.push_back(cached);
-    }
-    return result;
+    return images_.textures_for(
+        scene.images, [&](basalt::raster_image const &image) { return upload_image(slot, image); },
+        [this](std::shared_ptr<gpu_image> texture) { retire(std::move(texture)); });
   }
 
   auto upload_image(frame_slot &slot, basalt::raster_image const &source)
@@ -716,17 +686,9 @@ private:
     if (!created) {
       return std::unexpected(std::move(created.error()));
     }
-    auto premultiplied = source.pixels();
-    for (auto pixel = std::size_t{0}; pixel < premultiplied.size(); pixel += 4) {
-      auto const alpha = std::uint32_t{premultiplied[pixel + 3]};
-      for (auto channel = std::size_t{0}; channel < 3; ++channel) {
-        premultiplied[pixel + channel] =
-            static_cast<std::uint8_t>((premultiplied[pixel + channel] * alpha + 127) / 255);
-      }
-    }
-    if (auto const uploaded =
-            upload_rect(slot, **created, 0, 0, width, height, premultiplied.data(),
-                        static_cast<std::size_t>(width) * 4, 4);
+    auto const texels = premultiplied_rgba(source.pixels());
+    if (auto const uploaded = upload_rect(slot, **created, 0, 0, width, height, texels.data(),
+                                          static_cast<std::size_t>(width) * 4, 4);
         !uploaded) {
       return std::unexpected(uploaded.error());
     }
@@ -833,6 +795,121 @@ private:
     return descriptor_gpu_handle(slot, index);
   }
 
+  // The Direct3D 12 side of `walk_scene`: records the draws of one frame into the command list.
+  class scene_encoder {
+  public:
+    scene_encoder(d3d12_backend &owner, frame_slot &slot,
+                  std::vector<std::shared_ptr<gpu_image>> const &images, std::array<float, 4> clear,
+                  bool full_redraw)
+        : owner_(owner), list_(owner.list_.Get()), slot_(slot), images_(images), clear_(clear),
+          full_redraw_(full_redraw) {}
+
+    auto start(pass_target const &root) -> void {
+      set_target(root);
+      if (full_redraw_) {
+        clear_target(root, clear_);
+      }
+    }
+
+    auto set_scissor(pass_target const &target, pixel_rect scissor) -> void {
+      auto const rect = D3D12_RECT{scissor.x - target.area.x, scissor.y - target.area.y,
+                                   scissor.x - target.area.x + scissor.width,
+                                   scissor.y - target.area.y + scissor.height};
+      list_->RSSetScissorRects(1, &rect);
+    }
+
+    auto draw_clear(std::size_t area_index) -> std::expected<void, render_error> {
+      list_->SetPipelineState(owner_.copy_pipeline_.Get());
+      if (auto const bound = bind_texture({}); !bound) {
+        return bound;
+      }
+      draw_instances(static_cast<std::uint32_t>(area_index), 1);
+      list_->SetPipelineState(owner_.blend_pipeline_.Get());
+      return {};
+    }
+
+    auto draw(draw_batch const &batch) -> std::expected<void, render_error> {
+      if (auto const bound = bind_texture(batch.texture); !bound) {
+        return bound;
+      }
+      draw_instances(batch.first, batch.count);
+      return {};
+    }
+
+    auto begin_layer(pass_target const &, std::uint32_t index, pixel_rect area)
+        -> std::expected<pass_target, render_error> {
+      auto layer = owner_.layer_image(index, area);
+      if (!layer) {
+        return std::unexpected(std::move(layer.error()));
+      }
+      auto const target = pass_target{*layer, area, true};
+      owner_.transition(*target.image, D3D12_RESOURCE_STATE_RENDER_TARGET);
+      set_target(target);
+      clear_target(target, {0.0F, 0.0F, 0.0F, 0.0F});
+      return target;
+    }
+
+    auto end_layer(pass_target const &layer, pass_target const &parent) -> void {
+      owner_.transition(*layer.image, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+      set_target(parent);
+    }
+
+    auto finish(pass_target const &) -> void {}
+
+  private:
+    auto set_target(pass_target const &target) -> void {
+      auto const view = target.image->render_view->GetCPUDescriptorHandleForHeapStart();
+      list_->OMSetRenderTargets(1, &view, FALSE, nullptr);
+      auto const viewport = D3D12_VIEWPORT{
+          0.0F, 0.0F, static_cast<float>(target.area.width), static_cast<float>(target.area.height),
+          0.0F, 1.0F};
+      list_->RSSetViewports(1, &viewport);
+      auto const constants = target_constants{
+          {static_cast<float>(target.area.x), static_cast<float>(target.area.y)},
+          {static_cast<float>(target.area.width), static_cast<float>(target.area.height)}};
+      list_->SetGraphicsRoot32BitConstants(0, 4, &constants, 0);
+    }
+
+    auto clear_target(pass_target const &target, std::array<float, 4> color) -> void {
+      list_->ClearRenderTargetView(target.image->render_view->GetCPUDescriptorHandleForHeapStart(),
+                                   color.data(), 0, nullptr);
+    }
+
+    auto draw_instances(std::uint32_t first, std::uint32_t count) -> void {
+      list_->SetGraphicsRoot32BitConstant(0, first, 4);
+      list_->DrawInstanced(4, count, 0, 0);
+    }
+
+    auto bind_texture(texture_ref texture) -> std::expected<void, render_error> {
+      auto const &image = [&]() -> gpu_image const & {
+        switch (texture.from) {
+        case texture_ref::source::atlas_page:
+          return *owner_.page_images_[texture.index].second;
+        case texture_ref::source::image:
+          return *images_[texture.index];
+        case texture_ref::source::layer:
+          return *owner_.layers_[texture.index];
+        case texture_ref::source::none:
+          break;
+        }
+        return *owner_.empty_;
+      }();
+      auto handle = owner_.texture_descriptor(slot_, texture, image);
+      if (!handle) {
+        return std::unexpected(std::move(handle.error()));
+      }
+      list_->SetGraphicsRootDescriptorTable(2, *handle);
+      return {};
+    }
+
+    d3d12_backend &owner_;
+    ID3D12GraphicsCommandList *list_;
+    frame_slot &slot_;
+    std::vector<std::shared_ptr<gpu_image>> const &images_;
+    std::array<float, 4> clear_;
+    bool full_redraw_;
+  };
+
   auto encode(frame_slot &slot, gpu_scene const &scene,
               std::vector<std::shared_ptr<gpu_image>> const &images, frame_request const &request)
       -> std::expected<void, render_error> {
@@ -844,121 +921,11 @@ private:
     list_->SetGraphicsRootDescriptorTable(1, descriptor_gpu_handle(slot, 0));
     transition(*frame_, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-    auto const root = pass_target{frame_.get(), {0, 0, request.width, request.height}, false};
-    auto stack = std::vector<pass_target>{};
-    auto current = root;
-    auto scissor = pixel_rect{};
-    auto failed = std::optional<render_error>{};
-
-    auto const set_target = [&](pass_target const &target) {
-      auto const view = target.image->render_view->GetCPUDescriptorHandleForHeapStart();
-      list_->OMSetRenderTargets(1, &view, FALSE, nullptr);
-      auto const viewport = D3D12_VIEWPORT{
-          0.0F, 0.0F, static_cast<float>(target.area.width), static_cast<float>(target.area.height),
-          0.0F, 1.0F};
-      list_->RSSetViewports(1, &viewport);
-      auto const constants = target_constants{
-          {static_cast<float>(target.area.x), static_cast<float>(target.area.y)},
-          {static_cast<float>(target.area.width), static_cast<float>(target.area.height)}};
-      list_->SetGraphicsRoot32BitConstants(0, 4, &constants, 0);
-    };
-    auto const clear_target = [&](pass_target const &target, std::array<float, 4> color) {
-      list_->ClearRenderTargetView(target.image->render_view->GetCPUDescriptorHandleForHeapStart(),
-                                   color.data(), 0, nullptr);
-    };
-    // Limits drawing to the damaged area inside the current target. False when they do not meet.
-    auto const restrict_to = [&](pixel_rect area) {
-      scissor = intersect(area, current.area);
-      if (scissor.width <= 0 || scissor.height <= 0) {
-        return false;
-      }
-      auto const rect = D3D12_RECT{scissor.x - current.area.x, scissor.y - current.area.y,
-                                   scissor.x - current.area.x + scissor.width,
-                                   scissor.y - current.area.y + scissor.height};
-      list_->RSSetScissorRects(1, &rect);
-      return true;
-    };
-    auto const draw = [&](std::uint32_t first, std::uint32_t count) {
-      list_->SetGraphicsRoot32BitConstant(0, first, 4);
-      list_->DrawInstanced(4, count, 0, 0);
-    };
-    auto const bind_texture = [&](texture_ref texture) {
-      auto const &image = [&]() -> gpu_image const & {
-        switch (texture.from) {
-        case texture_ref::source::atlas_page:
-          return *page_images_[texture.index].second;
-        case texture_ref::source::image:
-          return *images[texture.index];
-        case texture_ref::source::layer:
-          return *layers_[texture.index];
-        case texture_ref::source::none:
-          break;
-        }
-        return *empty_;
-      }();
-      auto handle = texture_descriptor(slot, texture, image);
-      if (!handle) {
-        failed = std::move(handle.error());
-        return;
-      }
-      list_->SetGraphicsRootDescriptorTable(2, *handle);
-    };
-
-    auto const clear = request.clear;
-    auto const alpha = static_cast<float>(clear.a) / 255.0F;
-    auto const clear_color = std::array{static_cast<float>(clear.r) / 255.0F * alpha,
-                                        static_cast<float>(clear.g) / 255.0F * alpha,
-                                        static_cast<float>(clear.b) / 255.0F * alpha, alpha};
-
-    set_target(root);
-    if (request.full_redraw) {
-      clear_target(root, clear_color);
-    }
-    for (auto area_index = std::size_t{0}; area_index < request.areas.size() && !failed;
-         ++area_index) {
-      auto const area = request.areas[area_index];
-      auto visible = restrict_to(area);
-      if (visible && !request.full_redraw) {
-        list_->SetPipelineState(copy_pipeline_.Get());
-        bind_texture({});
-        draw(static_cast<std::uint32_t>(area_index), 1);
-        list_->SetPipelineState(blend_pipeline_.Get());
-      }
-      for (auto const &op : scene.ops) {
-        if (failed) {
-          break;
-        }
-        if (auto const *const batch = std::get_if<draw_batch>(&op)) {
-          if (visible) {
-            bind_texture(batch->texture);
-            draw(batch->first, batch->count);
-          }
-        } else if (auto const *const begin = std::get_if<begin_layer_pass>(&op)) {
-          stack.push_back(current);
-          auto const layer_area = scene.layers[begin->layer].area;
-          auto layer = layer_image(begin->layer, layer_area);
-          if (!layer) {
-            failed = std::move(layer.error());
-            break;
-          }
-          current = {*layer, layer_area, true};
-          transition(*current.image, D3D12_RESOURCE_STATE_RENDER_TARGET);
-          set_target(current);
-          clear_target(current, {0.0F, 0.0F, 0.0F, 0.0F});
-          visible = restrict_to(area);
-        } else if (!stack.empty()) {
-          transition(*current.image, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-          current = stack.back();
-          stack.pop_back();
-          set_target(current);
-          visible = restrict_to(area);
-        }
-      }
-    }
-    if (failed) {
-      return std::unexpected(std::move(*failed));
-    }
-    return {};
+    auto encoder =
+        scene_encoder{*this, slot, images, premultiplied(request.clear), request.full_redraw};
+    return walk_scene(scene, request,
+                      pass_target{frame_.get(), {0, 0, request.width, request.height}, false},
+                      encoder);
   }
 
   // ---- Presentation ----
@@ -1111,7 +1078,7 @@ private:
   gpu_scene_builder builder_;
   // By atlas page index: the page's id and its texture.
   std::vector<std::pair<std::uint64_t, std::shared_ptr<gpu_image>>> page_images_;
-  std::unordered_map<std::uint64_t, std::shared_ptr<gpu_image>> images_;
+  image_cache<std::shared_ptr<gpu_image>> images_{image_cache_limit};
   // By scene layer index.
   std::vector<std::shared_ptr<gpu_image>> layers_;
 };
