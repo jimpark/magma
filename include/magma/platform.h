@@ -111,6 +111,12 @@ public:
   // Blocks until an event is queued, `wake` is called or the timeout passes;
   // no timeout waits indefinitely. The events stay queued for `poll_events`.
   auto wait_for_events(std::optional<std::chrono::nanoseconds> timeout) -> void;
+  // Called with each resize while the operating system holds the event loop, such as during a
+  // drag of the window's edge on macOS, when `poll_events` is not running. It runs on the main
+  // thread inside the system's resize loop, so it should draw a frame and return quickly. The
+  // same events are still returned by the next `poll_events`. An empty function removes it.
+  using live_resize_callback = std::function<void(platform_event const &)>;
+  auto set_live_resize_callback(live_resize_callback callback) -> void;
   // Ends a wait early. Safe to call while another callback is running on the
   // event thread, such as a file dialog's.
   auto wake() -> void;

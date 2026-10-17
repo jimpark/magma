@@ -253,6 +253,22 @@ auto on_dialog(void *userdata, char const *const *filelist, int) -> void {
   }
 }
 
+auto on_live_resize(void *userdata, SDL_Event *event) -> bool {
+  if ((event->type != SDL_EVENT_WINDOW_RESIZED &&
+       event->type != SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) ||
+      !SDL_IsMainThread()) {
+    return true;
+  }
+  auto const &callback = *static_cast<platform::live_resize_callback *>(userdata);
+  if (callback) {
+    auto resized = std::vector<platform_event>{};
+    append_window_event(resized, event->window.windowID, basalt::window_action::resized,
+                        event->common.timestamp == 0 ? now() : event_time(event->common.timestamp));
+    callback(resized.front());
+  }
+  return true;
+}
+
 } // namespace
 
 platform::platform(std::unique_ptr<impl> implementation) : impl_(std::move(implementation)) {}
@@ -260,6 +276,7 @@ platform::platform(platform &&) noexcept = default;
 auto platform::operator=(platform &&other) noexcept -> platform & {
   if (this != &other) {
     if (impl_ != nullptr) {
+      set_live_resize_callback({});
       impl_->release_graphics();
       impl_->windows.clear();
       impl_->cursors.clear();
@@ -272,6 +289,7 @@ auto platform::operator=(platform &&other) noexcept -> platform & {
 
 platform::~platform() {
   if (impl_ != nullptr) {
+    set_live_resize_callback({});
     impl_->release_graphics();
     impl_->windows.clear();
     impl_->cursors.clear();
@@ -286,6 +304,17 @@ auto platform::create() -> std::expected<platform, platform_error> {
     return std::unexpected(platform_error{SDL_GetError()});
   }
   return platform{std::make_unique<impl>()};
+}
+
+auto platform::set_live_resize_callback(live_resize_callback callback) -> void {
+  auto const watched = callback != nullptr;
+  impl_->live_resize = std::move(callback);
+  if (watched && !impl_->live_resize_watching) {
+    SDL_AddEventWatch(on_live_resize, &impl_->live_resize);
+  } else if (!watched && impl_->live_resize_watching) {
+    SDL_RemoveEventWatch(on_live_resize, &impl_->live_resize);
+  }
+  impl_->live_resize_watching = watched;
 }
 
 auto platform::wait_for_events(std::optional<std::chrono::nanoseconds> timeout) -> void {
