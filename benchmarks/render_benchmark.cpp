@@ -98,6 +98,31 @@ auto article(float offset) -> paint_commands {
   return commands;
 }
 
+// A grid of 6 by 5 translucent cards. Each card is a layer with a background and three lines of
+// text, so the scene has many layer passes and many batches that a small damage rect misses.
+auto card_grid() -> paint_commands {
+  constexpr auto columns = 6;
+  constexpr auto rows = 5;
+  constexpr auto card_size = size{184, 144};
+  auto commands = paint_commands{};
+  for (auto row = 0; row < rows; ++row) {
+    for (auto column = 0; column < columns; ++column) {
+      auto const origin =
+          point{8 + static_cast<float>(column) * 198, 8 + static_cast<float>(row) * 156};
+      commands.emplace_back(begin_layer_command{235});
+      commands.emplace_back(
+          fill_rounded_rect_command{{origin, card_size}, {240, 240, 245, 255}, 8});
+      for (auto line = 0; line < 3; ++line) {
+        add_text(commands, "Card text for one line",
+                 {origin.x + 12, origin.y + 32 + 28 * static_cast<float>(line)}, 14,
+                 {30, 30, 30, 255});
+      }
+      commands.emplace_back(end_layer_command{});
+    }
+  }
+  return commands;
+}
+
 auto warmed_renderer(magma::backend_preference preference, float scale,
                      paint_commands const &commands) -> magma::renderer {
   auto renderer = magma::renderer::create_offscreen(preference);
@@ -187,5 +212,33 @@ TEST_CASE("first frame of an article page", "[render][benchmark]") {
       renderer.set_metrics(viewport, 2);
       return render(renderer, page, {});
     };
+  }
+}
+
+TEST_CASE("replay a grid of layered cards", "[render][benchmark]") {
+  require_optimized_build();
+  auto const grid = card_grid();
+
+  for (auto const preference : backends()) {
+    auto renderer = warmed_renderer(preference, 2, grid);
+    auto const name = [&renderer](std::string_view what) {
+      return std::string{what} + " (" + std::string{backend_name(renderer)} + ")";
+    };
+
+    BENCHMARK(name("cards: full redraw")) {
+      renderer.request_full_redraw();
+      return render(renderer, grid, {});
+    };
+
+    auto one_card = std::array{rect{{210, 164}, {184, 144}}};
+    BENCHMARK(name("cards: 1 card damaged")) { return render(renderer, grid, one_card); };
+
+    auto sixteen = std::array<rect, 16>{};
+    for (auto index = std::size_t{0}; index < sixteen.size(); ++index) {
+      auto const column = static_cast<float>(index % 6);
+      auto const row = static_cast<float>(index / 6);
+      sixteen[index] = {{20 + column * 198, 40 + row * 156}, {60, 20}};
+    }
+    BENCHMARK(name("cards: 16 slivers damaged")) { return render(renderer, grid, sixteen); };
   }
 }
