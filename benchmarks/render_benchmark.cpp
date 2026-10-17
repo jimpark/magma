@@ -153,6 +153,22 @@ TEST_CASE("replay an article page", "[render][benchmark]") {
 
       auto const caret = std::array{rect{{419, 299}, {4, 22}}};
       BENCHMARK(name("caret blink")) { return render(renderer, page, caret); };
+
+      // Basalt sends up to 16 damage rects. Each one makes the GPU backends walk the scene again.
+      auto scattered_lines = std::array<rect, 8>{};
+      for (auto index = std::size_t{0}; index < scattered_lines.size(); ++index) {
+        scattered_lines[index] = {{0, 102 + 80 * static_cast<float>(index)},
+                                  {viewport.width, line_height}};
+      }
+      BENCHMARK(name("8 lines damaged")) { return render(renderer, page, scattered_lines); };
+
+      auto scattered_slivers = std::array<rect, 16>{};
+      for (auto index = std::size_t{0}; index < scattered_slivers.size(); ++index) {
+        scattered_slivers[index] = {
+            {64 + 64 * static_cast<float>(index), 299 + 8 * static_cast<float>(index % 4)},
+            {4, 22}};
+      }
+      BENCHMARK(name("16 slivers damaged")) { return render(renderer, page, scattered_slivers); };
     }
   }
 }
