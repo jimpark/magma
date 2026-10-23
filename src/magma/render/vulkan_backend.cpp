@@ -1159,12 +1159,12 @@ private:
     if (!created) {
       return std::unexpected(std::move(created.error()));
     }
-    auto const texels = premultiplied_rgba(source.pixels());
-    auto staged = reserve_staging(slot, texels.size());
+    auto const &pixels = source.pixels();
+    auto staged = reserve_staging(slot, pixels.size());
     if (!staged) {
       return std::unexpected(std::move(staged.error()));
     }
-    std::memcpy(staged->second, texels.data(), texels.size());
+    write_premultiplied_rgba(pixels, staged->second);
     copy_to_image(commands, slot.staging.buffer.get(), staged->first, **created, 0, 0, width,
                   height, width);
     return std::move(*created);
