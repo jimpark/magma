@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/magma-logo-light.svg" alt="Magma logo" width="240">
+</p>
+
 # Magma
 
 Magma is a C++23 library that gives [Basalt](https://github.com/nadiasvertex/basalt) applications
@@ -18,6 +22,12 @@ frame, and turns the paint commands into pixels.
   tests and tools. It keeps the last frame and redraws only the damaged areas.
 
 `magma/magma.h` includes every public header.
+
+The [documentation](docs/index.md) has an overview, an architecture description, a getting-started
+guide, and a chapter each on the platform, frame scheduling and rendering.
+`just docs` builds the documentation as HTML, and `just docs pdf` builds it as PDF.
+`just website` builds the HTML with diagrams and copies it to `website/docs/`. Diagrams need
+Graphviz (`dot`).
 
 The platform uses SDL 3. SDL is a private dependency: no public header includes it, and the
 application does not call SDL.

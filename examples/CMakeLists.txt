@@ -1,2 +1,5 @@
 add_executable(magma_event_loop event_loop.cpp)
 target_link_libraries(magma_event_loop PRIVATE magma::magma magma_compiler_options)
+
+add_executable(magma_hello_window hello_window.cpp)
+target_link_libraries(magma_hello_window PRIVATE magma::magma magma_compiler_options)

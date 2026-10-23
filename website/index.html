@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Magma: windows, input and rendering for Basalt</title>
+  <meta name="description" content="Magma is a C++23 library that gives Basalt applications their windows, input and rendering. It paces frames by the display and draws paint commands on the GPU or the CPU.">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="#top"><img src="images/favicon.svg" alt=""><span>Magma</span></a>
+      <nav class="site" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#example">Example</a>
+        <a href="docs/">Documentation</a>
+        <a href="https://github.com/nadiasvertex/magma">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <div class="wrap hero">
+      <img class="logo" src="images/magma-logo-light.svg" alt="Magma: C++ windows, input and rendering">
+      <h1>Windows, input and pixels for Basalt applications.</h1>
+      <p class="lead">Basalt turns a widget tree into paint commands. Magma opens the windows, translates the input into Basalt events, decides when each frame starts, and draws the paint commands on the GPU or the CPU.</p>
+      <div class="actions">
+        <a class="button primary" href="docs/">Read the documentation</a>
+        <a class="button" href="https://github.com/nadiasvertex/magma">View on GitHub</a>
+      </div>
+    </div>
+
+    <section id="features" class="alt">
+      <div class="wrap">
+        <h2>Features</h2>
+        <p class="section-lead">Magma supplies the parts of a user interface that depend on the platform.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>Basalt types throughout</h3>
+            <p>Events arrive as <code>basalt::event</code> values, and the renderer takes <code>basalt::paint_commands</code>. Magma does not wrap them.</p>
+          </div>
+          <div class="card">
+            <h3>Frames paced by the display</h3>
+            <p>One frame for each display refresh, and a frame for input at once when the previous frame is on the screen.</p>
+          </div>
+          <div class="card">
+            <h3>GPU and CPU backends</h3>
+            <p>Metal, Vulkan and Direct3D 12 on the GPU, and Blend2D on the CPU. All give the same image within a small tolerance.</p>
+          </div>
+          <div class="card">
+            <h3>Damage-based redraw</h3>
+            <p>The renderer keeps the last frame and redraws only the damaged areas. Commands outside them are skipped.</p>
+          </div>
+          <div class="card">
+            <h3>Platform services</h3>
+            <p>Clipboard, cursors, file dialogs, input methods, live resize, full screen, and the system's dark mode.</p>
+          </div>
+          <div class="card">
+            <h3>Plain CMake</h3>
+            <p>Use <code>FetchContent</code>, <code>add_subdirectory</code>, or an installed package. SDL and Blend2D stay private.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works">
+      <div class="wrap">
+        <h2>How it works</h2>
+        <p class="section-lead">Your application keeps its own event loop. Magma has three parts, and the loop connects them to a Basalt widget tree.</p>
+        <div class="layers">
+          <div class="layer card">
+            <h3><span>Platform</span></h3>
+            <p>Windows, input events, display ticks, the clipboard, cursors, file dialogs, and text input.</p>
+          </div>
+          <div class="layer card">
+            <h3><span>Frame scheduler</span></h3>
+            <p>Decides when the next frame can start. It has no clock of its own, so the same rules apply in tests.</p>
+          </div>
+          <div class="layer card">
+            <h3><span>Renderer</span></h3>
+            <p>Draws paint commands into a window, or into memory for tests and tools.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="example" class="alt">
+      <div class="wrap">
+        <h2>A small example</h2>
+        <div class="split">
+          <div>
+            <p class="section-lead" style="margin-top:1rem">Create a platform, a window and a renderer. Then wait for events, give them to Basalt, and draw each frame when the scheduler says it is due.</p>
+            <ul class="checks">
+              <li>C++23, with <code>std::expected</code> and value semantics</li>
+              <li>Builds with GCC, Clang, Apple Clang and MSVC</li>
+              <li>Apache License 2.0</li>
+            </ul>
+            <p><a class="button primary" href="docs/">Follow the getting-started guide</a></p>
+          </div>
+<pre><code><span class="k">auto</span> platform = *magma::platform::create();
+<span class="k">auto</span> window = *platform.create_window({
+    .graphics = magma::preferred_graphics_api(
+        magma::backend_preference::automatic)});
+<span class="k">auto</span> renderer = *magma::renderer::create(platform, window);
+<span class="k">auto</span> scheduler = magma::frame_scheduler{};
+
+<span class="k">while</span> (running) {
+  platform.wait_for_events(scheduler.wait_timeout(now()));
+  <span class="k">for</span> (<span class="k">auto const</span> &amp;e : platform.poll_events()) {
+    router.dispatch(e.event);
+  }
+  <span class="k">if</span> (scheduler.frame_due(now())) {
+    scheduler.begin_frame(now());
+    <span class="c">// Basalt: layout, damage, paint.</span>
+    renderer.render(commands, damage, background);
+  }
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="start">
+      <div class="wrap">
+        <h2>Get started</h2>
+        <p class="section-lead">Read the guide, or go to the source. Magma works with <a href="https://github.com/nadiasvertex/basalt">Basalt</a>.</p>
+        <div class="actions" style="justify-content:flex-start">
+          <a class="button primary" href="docs/">Documentation</a>
+          <a class="button" href="https://github.com/nadiasvertex/magma">GitHub repository</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap">
+      <div>
+        <a href="docs/">Documentation</a>
+        <a href="https://github.com/nadiasvertex/magma">GitHub</a>
+        <a href="https://github.com/nadiasvertex/magma/releases">Releases</a>
+      </div>
+      <div>Magma is released under the Apache License 2.0.</div>
+    </div>
+  </footer>
+</body>
+</html>

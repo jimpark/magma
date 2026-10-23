@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Magma</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">:root { color-scheme: light; }
+body { max-width: 46rem; margin: 2rem auto; padding: 0 1rem; font: 16px/1.6 system-ui, sans-serif; color: #1f2225; background: #f8f7f7; }
+h1, h2, h3 { line-height: 1.25; }
+h1 { margin-top: 3rem; border-bottom: 2px solid #f0580b; padding-bottom: .3rem; }
+a { color: #c24708; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; }
+pre { overflow-x: auto; padding: .8rem 1rem; border-radius: 6px; background: #eceded; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #bfc2c5; padding: .35rem .6rem; text-align: left; vertical-align: top; }
+nav#TOC { margin-bottom: 2rem; }
+img { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Magma</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#overview" id="toc-overview">Overview</a>
+<ul>
+<li><a href="#who-this-guide-is-for" id="toc-who-this-guide-is-for">Who
+this guide is for</a></li>
+<li><a href="#what-magma-does" id="toc-what-magma-does">What Magma
+does</a></li>
+<li><a href="#what-magma-does-not-do" id="toc-what-magma-does-not-do">What Magma does not do</a></li>
+<li><a href="#parts" id="toc-parts">Parts</a></li>
+<li><a href="#dependencies" id="toc-dependencies">Dependencies</a></li>
+<li><a href="#requirements" id="toc-requirements">Requirements</a></li>
+<li><a href="#next-steps" id="toc-next-steps">Next steps</a></li>
+</ul></li>
+<li><a href="#architecture" id="toc-architecture">Architecture</a>
+<ul>
+<li><a href="#parts-and-data-flow" id="toc-parts-and-data-flow">Parts
+and data flow</a></li>
+<li><a href="#coordinates" id="toc-coordinates">Coordinates</a></li>
+<li><a href="#platform" id="toc-platform">Platform</a></li>
+<li><a href="#frame-scheduler" id="toc-frame-scheduler">Frame
+scheduler</a></li>
+<li><a href="#renderer" id="toc-renderer">Renderer</a></li>
+<li><a href="#event-loop" id="toc-event-loop">Event loop</a></li>
+<li><a href="#threads" id="toc-threads">Threads</a></li>
+<li><a href="#errors" id="toc-errors">Errors</a></li>
+</ul></li>
+<li><a href="#getting-started" id="toc-getting-started">Getting
+Started</a>
+<ul>
+<li><a href="#step-1-add-magma-to-your-project" id="toc-step-1-add-magma-to-your-project">Step 1: Add Magma to your
+project</a></li>
+<li><a href="#step-2-create-the-platform-and-the-window" id="toc-step-2-create-the-platform-and-the-window">Step 2: Create the
+platform and the window</a></li>
+<li><a href="#step-3-create-the-renderer" id="toc-step-3-create-the-renderer">Step 3: Create the renderer</a></li>
+<li><a href="#step-4-create-the-widget-tree" id="toc-step-4-create-the-widget-tree">Step 4: Create the widget
+tree</a></li>
+<li><a href="#step-5-connect-the-scheduler-to-the-tree" id="toc-step-5-connect-the-scheduler-to-the-tree">Step 5: Connect the
+scheduler to the tree</a></li>
+<li><a href="#step-6-draw-a-frame" id="toc-step-6-draw-a-frame">Step 6:
+Draw a frame</a></li>
+<li><a href="#step-7-run-the-event-loop" id="toc-step-7-run-the-event-loop">Step 7: Run the event loop</a></li>
+<li><a href="#where-to-go-next" id="toc-where-to-go-next">Where to go
+next</a></li>
+</ul></li>
+<li><a href="#platform-1" id="toc-platform-1">Platform</a>
+<ul>
+<li><a href="#create-the-platform" id="toc-create-the-platform">Create
+the platform</a></li>
+<li><a href="#windows" id="toc-windows">Windows</a></li>
+<li><a href="#events" id="toc-events">Events</a></li>
+<li><a href="#wait-for-events" id="toc-wait-for-events">Wait for
+events</a></li>
+<li><a href="#display-ticks" id="toc-display-ticks">Display
+ticks</a></li>
+<li><a href="#live-resize" id="toc-live-resize">Live resize</a></li>
+<li><a href="#clipboard-and-cursors" id="toc-clipboard-and-cursors">Clipboard and cursors</a></li>
+<li><a href="#file-dialogs" id="toc-file-dialogs">File dialogs</a></li>
+<li><a href="#text-input" id="toc-text-input">Text input</a></li>
+<li><a href="#surfaces-for-other-renderers" id="toc-surfaces-for-other-renderers">Surfaces for other
+renderers</a></li>
+</ul></li>
+<li><a href="#frame-scheduling" id="toc-frame-scheduling">Frame
+Scheduling</a>
+<ul>
+<li><a href="#why-a-scheduler" id="toc-why-a-scheduler">Why a
+scheduler</a></li>
+<li><a href="#time" id="toc-time">Time</a></li>
+<li><a href="#requests" id="toc-requests">Requests</a></li>
+<li><a href="#signals-from-the-loop" id="toc-signals-from-the-loop">Signals from the loop</a></li>
+<li><a href="#questions-from-the-loop" id="toc-questions-from-the-loop">Questions from the loop</a></li>
+<li><a href="#rules" id="toc-rules">Rules</a></li>
+<li><a href="#displays-without-ticks" id="toc-displays-without-ticks">Displays without ticks</a></li>
+<li><a href="#input-latency" id="toc-input-latency">Input
+latency</a></li>
+</ul></li>
+<li><a href="#rendering" id="toc-rendering">Rendering</a>
+<ul>
+<li><a href="#create-a-renderer" id="toc-create-a-renderer">Create a
+renderer</a></li>
+<li><a href="#metrics" id="toc-metrics">Metrics</a></li>
+<li><a href="#draw-a-frame" id="toc-draw-a-frame">Draw a frame</a></li>
+<li><a href="#full-redraw" id="toc-full-redraw">Full redraw</a></li>
+<li><a href="#backends" id="toc-backends">Backends</a></li>
+<li><a href="#text" id="toc-text">Text</a></li>
+<li><a href="#metal" id="toc-metal">Metal</a></li>
+<li><a href="#vulkan-and-direct3d-12" id="toc-vulkan-and-direct3d-12">Vulkan and Direct3D 12</a></li>
+<li><a href="#read-pixels" id="toc-read-pixels">Read pixels</a></li>
+<li><a href="#frame-statistics" id="toc-frame-statistics">Frame
+statistics</a></li>
+</ul></li>
+<li><a href="#benchmarks" id="toc-benchmarks">Benchmarks</a>
+<ul>
+<li><a href="#method" id="toc-method">Method</a></li>
+<li><a href="#results" id="toc-results">Results</a></li>
+<li><a href="#decisions" id="toc-decisions">Decisions</a></li>
+<li><a href="#open-measurements" id="toc-open-measurements">Open
+Measurements</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="overview">Overview</h1>
+<figure>
+<img role="img" aria-label="Magma logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTM2IDUxMiIgd2lkdGg9IjE1MzYiIGhlaWdodD0iNTEyIj4KICA8dGl0bGU+TWFnbWE6IEMrKyB3aW5kb3dzLCBpbnB1dCBhbmQgcmVuZGVyaW5nPC90aXRsZT4KICA8cmVjdCB3aWR0aD0iMTUzNiIgaGVpZ2h0PSI1MTIiIGZpbGw9IiNmOGY3ZjciLz4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgwIC02KSI+CiAgICA8cG9seWdvbiBwb2ludHM9IjUyMCwyOTIgNzAwLDEwNCA3MzAsMTA0IDY1MCwyOTIiIGZpbGw9IiNjOWNjY2UiLz4KICAgIDxwb2x5Z29uIHBvaW50cz0iNjUwLDI5MiA3MzAsMTA0IDgwNiwxMDQgOTA1LDI5MiIgZmlsbD0iIzFmMjIyNSIvPgogICAgPHBvbHlnb24gcG9pbnRzPSI4MDYsMTA0IDgzNiwxMDQgMTAxNiwyOTIgOTA1LDI5MiIgZmlsbD0iIzliYTFhNyIvPgogICAgPHBvbHlnb24gcG9pbnRzPSI3MDAsMTA0IDgzNiwxMDQgODA2LDExNiA3MzAsMTE2IiBmaWxsPSIjNGE0ZjU1Ii8+CiAgICA8cG9seWdvbiBwb2ludHM9IjczMCwxMTAgODA2LDExMCA3OTIsMTUwIDgwNiwxOTYgNzc2LDI0OCA3OTIsMjkyIDcyNiwyOTIgNzQ2LDI0MCA3MjQsMTkwIDc0NCwxNDgiIGZpbGw9IiNmMDU4MGIiLz4KICAgIDxwb2x5Z29uIHBvaW50cz0iNzYwLDExMCA3OTIsMTEwIDc3OCwxNTAgNzkwLDE5NCA3NjYsMjQ0IDc3MiwyOTIgNzUyLDI5MiA3NjAsMjQwIDc0NCwxOTAgNzYyLDE0OCIgZmlsbD0iI2MyNDcwOCIvPgogICAgPHBvbHlnb24gcG9pbnRzPSI3NDIsODQgNzU4LDQ2IDc3Miw4NiIgZmlsbD0iI2YwNTgwYiIvPgogICAgPHBvbHlnb24gcG9pbnRzPSI3ODQsNzQgODA2LDMwIDgxNCw3MiIgZmlsbD0iI2MyNDcwOCIvPgogICAgPHBvbHlnb24gcG9pbnRzPSI3MTYsNjYgNzI4LDQ2IDczNCw3MCIgZmlsbD0iIzliYTFhNyIvPgogICAgPHBvbHlnb24gcG9pbnRzPSI1MDAsMjk4IDEwMzYsMjk4IDEwMTYsMjkyIDUyMCwyOTIiIGZpbGw9IiMxZjIyMjUiLz4KICA8L2c+CiAgPHRleHQgeD0iNzQ4IiB5PSI0MTYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZjIyMjUiCiAgICAgICAgZm9udC1mYW1pbHk9IkF2ZW5pciBOZXh0LCBGdXR1cmEsIEhlbHZldGljYSBOZXVlLCBBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMTIiCiAgICAgICAgZm9udC13ZWlnaHQ9IjUwMCIgbGV0dGVyLXNwYWNpbmc9IjQwIj5NQUdNQTwvdGV4dD4KICA8dGV4dCB4PSI3NjQiIHk9IjQ3MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFmMjIyNSIKICAgICAgICBmb250LWZhbWlseT0iQXZlbmlyIE5leHQsIEZ1dHVyYSwgSGVsdmV0aWNhIE5ldWUsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjMwIgogICAgICAgIGxldHRlci1zcGFjaW5nPSI5Ij5DKysgV0lORE9XUywgSU5QVVQgQU5EIFJFTkRFUklORzwvdGV4dD4KPC9zdmc+Cg==" alt="Magma logo" />
+<figcaption aria-hidden="true">Magma logo</figcaption>
+</figure>
+<p>Magma is a C++23 library. It gives <a href="https://github.com/nadiasvertex/basalt">Basalt</a> applications
+their windows, their input, and their pixels. Basalt turns a widget tree
+into paint commands. Magma opens the windows, reads the input, decides
+when each frame starts, and draws the paint commands.</p>
+<p>This guide has these parts. This overview describes what Magma does.
+The architecture chapter describes how the parts fit together. The
+getting-started chapter shows a first program. The platform, frame
+scheduling, and rendering chapters describe each part in detail. The
+last chapter records benchmark results.</p>
+<h2 id="who-this-guide-is-for">Who this guide is for</h2>
+<p>This guide is for C++ programmers. You must know C++20 or later and
+CMake. You must also know the Basalt widget tree and its frame cycle.
+Read the Basalt guide first if Basalt is new to you. You do not need to
+know SDL, Blend2D, Metal, Vulkan, or Direct3D.</p>
+<h2 id="what-magma-does">What Magma does</h2>
+<p>Magma does these tasks:</p>
+<ul>
+<li>It creates windows and reports their size, display scale, and
+refresh rate.</li>
+<li>It translates operating system input into <code>basalt::event</code>
+values.</li>
+<li>It supplies the clipboard, cursors, file dialogs, and text input for
+input methods.</li>
+<li>It decides when the next frame can start, from the display’s refresh
+and from input.</li>
+<li>It draws Basalt paint commands on the GPU or on the CPU, and shows
+them in the window.</li>
+<li>It redraws only the damaged areas of each frame.</li>
+</ul>
+<h2 id="what-magma-does-not-do">What Magma does not do</h2>
+<p>Magma does not do these tasks. Your application does them.</p>
+<ul>
+<li>It does not own the event loop. Your application calls Magma from
+its own loop.</li>
+<li>It does not keep a widget tree. Your application gives events to
+Basalt and paint commands to Magma.</li>
+<li>It does not build an accessibility bridge.</li>
+<li>It does not load fonts. Basalt’s <code>font_manager</code> loads
+them.</li>
+</ul>
+<p>Magma uses Basalt’s types in its API and does not wrap them. A
+<code>basalt::event</code> from Magma goes directly to
+<code>basalt::event_router::dispatch</code>. A
+<code>basalt::paint_commands</code> value from Basalt goes directly to
+<code>magma::renderer::render</code>.</p>
+<h2 id="parts">Parts</h2>
+<p>The library has three parts.</p>
+<table>
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 33%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr>
+<th>Part</th>
+<th>Header</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Platform</td>
+<td><code>magma/platform.h</code></td>
+<td>Windows, input events, clipboard, cursors, file dialogs, text input,
+display ticks</td>
+</tr>
+<tr>
+<td>Frame scheduler</td>
+<td><code>magma/frame_scheduler.h</code></td>
+<td>The rules that decide when the next frame starts</td>
+</tr>
+<tr>
+<td>Renderer</td>
+<td><code>magma/renderer.h</code></td>
+<td>Draws paint commands into a window or into memory</td>
+</tr>
+</tbody>
+</table>
+<p>The header <code>magma/magma.h</code> includes every public
+header.</p>
+<h2 id="dependencies">Dependencies</h2>
+<p>Magma uses SDL 3 for the platform and Blend2D for drawing on the CPU.
+Both are private dependencies. No public header includes them, and your
+application does not call them. The graphics APIs are private
+dependencies too.</p>
+<p>Basalt is a public dependency. When you link
+<code>magma::magma</code>, you also get <code>basalt::basalt</code>.</p>
+<h2 id="requirements">Requirements</h2>
+<p>Magma needs CMake 3.25 or later. It needs a C++23 compiler and
+standard library. The <code>README.md</code> file lists the tested
+compilers, the build options, and the release archives.</p>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Read <a href="#architecture">Architecture</a> to learn the parts and
+the event loop.</li>
+<li>Read <a href="#getting-started">Getting Started</a> to build a
+window with Basalt widgets.</li>
+<li>Read the headers in <code>include/magma/</code>. Each class has a
+comment that states its rules.</li>
+<li>Read <code>examples/event_loop.cpp</code> and
+<code>examples/hello_window.cpp</code> for complete programs.</li>
+</ul>
+<h1 id="architecture">Architecture</h1>
+<p>Magma has three parts: the platform, the frame scheduler, and the
+renderer. Your application owns the event loop and connects the parts to
+a Basalt widget tree. This chapter describes each part and the order in
+which they run.</p>
+<h2 id="parts-and-data-flow">Parts and data flow</h2>
+<p>The platform reads input. Basalt changes the widget tree and records
+paint commands. The renderer draws the commands. The frame scheduler
+decides when to start each frame. In the diagram, the orange parts are
+Magma and the gray parts are Basalt.</p>
+<p><img role="img" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9HcmFwaGljcy9TVkcvMS4xL0RURC9zdmcxMS5kdGQiPgo8IS0tIEdlbmVyYXRlZCBieSBncmFwaHZpeiB2ZXJzaW9uIDE2LjEuMCAoMjAyNjA5MDQuMDEzOSkKIC0tPgo8IS0tIFRpdGxlOiBkYXRhX2Zsb3cgUGFnZXM6IDEgLS0+Cjxzdmcgd2lkdGg9IjYyMXB0IiBoZWlnaHQ9Ijg4MXB0Igogdmlld0JveD0iMC4wMCAwLjAwIDYyMS4wMCA4ODEuMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPgo8ZyBpZD0iZ3JhcGgwIiBjbGFzcz0iZ3JhcGgiIHRyYW5zZm9ybT0ic2NhbGUoMiAyKSByb3RhdGUoMCkgdHJhbnNsYXRlKDQgNDM2LjI1KSI+Cjx0aXRsZT5kYXRhX2Zsb3c8L3RpdGxlPgo8IS0tIGlucHV0IC0tPgo8ZyBpZD0ibm9kZTEiIGNsYXNzPSJub2RlIj4KPHRpdGxlPmlucHV0PC90aXRsZT4KPHBhdGggZmlsbD0iI2VjZWRlZCIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMjAzLjYsLTQzMi4yNUMyMDMuNiwtNDMyLjI1IDk4LC00MzIuMjUgOTgsLTQzMi4yNSA5MiwtNDMyLjI1IDg2LC00MjYuMjUgODYsLTQyMC4yNSA4NiwtNDIwLjI1IDg2LC00MDguMjUgODYsLTQwOC4yNSA4NiwtNDAyLjI1IDkyLC0zOTYuMjUgOTgsLTM5Ni4yNSA5OCwtMzk2LjI1IDIwMy42LC0zOTYuMjUgMjAzLjYsLTM5Ni4yNSAyMDkuNiwtMzk2LjI1IDIxNS42LC00MDIuMjUgMjE1LjYsLTQwOC4yNSAyMTUuNiwtNDA4LjI1IDIxNS42LC00MjAuMjUgMjE1LjYsLTQyMC4yNSAyMTUuNiwtNDI2LjI1IDIwOS42LC00MzIuMjUgMjAzLjYsLTQzMi4yNSIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNTAuOCIgeT0iLTQwOC40NSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIiBmaWxsPSIjMWYyMjI1Ij5PcGVyYXRpbmcgc3lzdGVtPC90ZXh0Pgo8L2c+CjwhLS0gcGxhdGZvcm0gLS0+CjxnIGlkPSJub2RlMiIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+cGxhdGZvcm08L3RpdGxlPgo8cGF0aCBmaWxsPSIjZmRlNmQ5IiBzdHJva2U9IiNmMDU4MGIiIGQ9Ik0yMDMuNiwtMzUzQzIwMy42LC0zNTMgOTgsLTM1MyA5OCwtMzUzIDkyLC0zNTMgODYsLTM0NyA4NiwtMzQxIDg2LC0zNDEgODYsLTMyOSA4NiwtMzI5IDg2LC0zMjMgOTIsLTMxNyA5OCwtMzE3IDk4LC0zMTcgMjAzLjYsLTMxNyAyMDMuNiwtMzE3IDIwOS42LC0zMTcgMjE1LjYsLTMyMyAyMTUuNiwtMzI5IDIxNS42LC0zMjkgMjE1LjYsLTM0MSAyMTUuNiwtMzQxIDIxNS42LC0zNDcgMjA5LjYsLTM1MyAyMDMuNiwtMzUzIi8+Cjx0ZXh0IHhtbDpzcGFjZT0icHJlc2VydmUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjE1MC44IiB5PSItMzI5LjIiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+cGxhdGZvcm08L3RleHQ+CjwvZz4KPCEtLSBpbnB1dCYjNDU7Jmd0O3BsYXRmb3JtIC0tPgo8ZyBpZD0iZWRnZTEiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPmlucHV0JiM0NTsmZ3Q7cGxhdGZvcm08L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xNTAuOCwtMzk2LjExQzE1MC44LC0zODYuODcgMTUwLjgsLTM3NS4yMyAxNTAuOCwtMzY0LjY2Ii8+Cjxwb2x5Z29uIGZpbGw9IiMxZjIyMjUiIHN0cm9rZT0iIzFmMjIyNSIgcG9pbnRzPSIxNTQuMywtMzY0Ljg4IDE1MC44LC0zNTQuODggMTQ3LjMsLTM2NC44OCAxNTQuMywtMzY0Ljg4Ii8+Cjx0ZXh0IHhtbDpzcGFjZT0icHJlc2VydmUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjE2NC4zIiB5PSItMzcwLjc1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTAuMDAiIGZpbGw9IiMxZjIyMjUiPiAmIzE2MDtpbnB1dDwvdGV4dD4KPC9nPgo8IS0tIHJvdXRlciAtLT4KPGcgaWQ9Im5vZGUzIiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5yb3V0ZXI8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiM5YmExYTciIGQ9Ik0xMTcuNiwtMjczLjc1QzExNy42LC0yNzMuNzUgMTIsLTI3My43NSAxMiwtMjczLjc1IDYsLTI3My43NSAwLC0yNjcuNzUgMCwtMjYxLjc1IDAsLTI2MS43NSAwLC0yNDkuNzUgMCwtMjQ5Ljc1IDAsLTI0My43NSA2LC0yMzcuNzUgMTIsLTIzNy43NSAxMiwtMjM3Ljc1IDExNy42LC0yMzcuNzUgMTE3LjYsLTIzNy43NSAxMjMuNiwtMjM3Ljc1IDEyOS42LC0yNDMuNzUgMTI5LjYsLTI0OS43NSAxMjkuNiwtMjQ5Ljc1IDEyOS42LC0yNjEuNzUgMTI5LjYsLTI2MS43NSAxMjkuNiwtMjY3Ljc1IDEyMy42LC0yNzMuNzUgMTE3LjYsLTI3My43NSIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI2NC44IiB5PSItMjQ5Ljk1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiIGZpbGw9IiMxZjIyMjUiPmV2ZW50X3JvdXRlcjwvdGV4dD4KPC9nPgo8IS0tIHBsYXRmb3JtJiM0NTsmZ3Q7cm91dGVyIC0tPgo8ZyBpZD0iZWRnZTIiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPnBsYXRmb3JtJiM0NTsmZ3Q7cm91dGVyPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTI1Ljg2LC0zMTYuNThDMTE5LjM5LC0zMTEuNzUgMTEyLjU2LC0zMDYuMzUgMTA2LjU1LC0zMDEgMTAwLjE1LC0yOTUuMyA5My42MiwtMjg4Ljc3IDg3LjY3LC0yODIuNTEiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjkwLjQsLTI4MC4zIDgxLjAzLC0yNzUuMzUgODUuMjYsLTI4NS4wNiA5MC40LC0yODAuMyIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxMzcuNjgiIHk9Ii0yOTEuNSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjEwLjAwIiBmaWxsPSIjMWYyMjI1Ij4gJiMxNjA7YmFzYWx0OjpldmVudDwvdGV4dD4KPC9nPgo8IS0tIHNjaGVkdWxlciAtLT4KPGcgaWQ9Im5vZGU3IiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5zY2hlZHVsZXI8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZmRlNmQ5IiBzdHJva2U9IiNmMDU4MGIiIGQ9Ik0yOTAuNiwtMjczLjc1QzI5MC42LC0yNzMuNzUgMTg1LC0yNzMuNzUgMTg1LC0yNzMuNzUgMTc5LC0yNzMuNzUgMTczLC0yNjcuNzUgMTczLC0yNjEuNzUgMTczLC0yNjEuNzUgMTczLC0yNDkuNzUgMTczLC0yNDkuNzUgMTczLC0yNDMuNzUgMTc5LC0yMzcuNzUgMTg1LC0yMzcuNzUgMTg1LC0yMzcuNzUgMjkwLjYsLTIzNy43NSAyOTAuNiwtMjM3Ljc1IDI5Ni42LC0yMzcuNzUgMzAyLjYsLTI0My43NSAzMDIuNiwtMjQ5Ljc1IDMwMi42LC0yNDkuNzUgMzAyLjYsLTI2MS43NSAzMDIuNiwtMjYxLjc1IDMwMi42LC0yNjcuNzUgMjk2LjYsLTI3My43NSAyOTAuNiwtMjczLjc1Ii8+Cjx0ZXh0IHhtbDpzcGFjZT0icHJlc2VydmUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjIzNy44IiB5PSItMjQ5Ljk1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiIGZpbGw9IiMxZjIyMjUiPmZyYW1lX3NjaGVkdWxlcjwvdGV4dD4KPC9nPgo8IS0tIHBsYXRmb3JtJiM0NTsmZ3Q7c2NoZWR1bGVyIC0tPgo8ZyBpZD0iZWRnZTYiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPnBsYXRmb3JtJiM0NTsmZ3Q7c2NoZWR1bGVyPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTcwLjExLC0zMTYuODZDMTgxLjc0LC0zMDYuNTMgMTk2Ljc2LC0yOTMuMTkgMjA5LjY5LC0yODEuNzEiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjIxMS45NiwtMjg0LjM4IDIxNy4xMSwtMjc1LjEyIDIwNy4zMSwtMjc5LjE0IDIxMS45NiwtMjg0LjM4Ii8+Cjx0ZXh0IHhtbDpzcGFjZT0icHJlc2VydmUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjIyNi44OCIgeT0iLTI5MS41IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTAuMDAiIGZpbGw9IiMxZjIyMjUiPmRpc3BsYXkgdGlja3M8L3RleHQ+CjwvZz4KPCEtLSB0cmVlIC0tPgo8ZyBpZD0ibm9kZTQiIGNsYXNzPSJub2RlIj4KPHRpdGxlPnRyZWU8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiM5YmExYTciIGQ9Ik0yMDMuNiwtMTk0LjVDMjAzLjYsLTE5NC41IDk4LC0xOTQuNSA5OCwtMTk0LjUgOTIsLTE5NC41IDg2LC0xODguNSA4NiwtMTgyLjUgODYsLTE4Mi41IDg2LC0xNzAuNSA4NiwtMTcwLjUgODYsLTE2NC41IDkyLC0xNTguNSA5OCwtMTU4LjUgOTgsLTE1OC41IDIwMy42LC0xNTguNSAyMDMuNiwtMTU4LjUgMjA5LjYsLTE1OC41IDIxNS42LC0xNjQuNSAyMTUuNiwtMTcwLjUgMjE1LjYsLTE3MC41IDIxNS42LC0xODIuNSAyMTUuNiwtMTgyLjUgMjE1LjYsLTE4OC41IDIwOS42LC0xOTQuNSAyMDMuNiwtMTk0LjUiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTUwLjgiIHk9Ii0xNzAuNyIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIiBmaWxsPSIjMWYyMjI1Ij53aWRnZXRfdHJlZTwvdGV4dD4KPC9nPgo8IS0tIHJvdXRlciYjNDU7Jmd0O3RyZWUgLS0+CjxnIGlkPSJlZGdlMyIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+cm91dGVyJiM0NTsmZ3Q7dHJlZTwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmMjIyNSIgZD0iTTgzLjg5LC0yMzcuNjFDOTUuMzksLTIyNy4yOCAxMTAuMjMsLTIxMy45NCAxMjMuMDEsLTIwMi40NiIvPgo8cG9seWdvbiBmaWxsPSIjMWYyMjI1IiBzdHJva2U9IiMxZjIyMjUiIHBvaW50cz0iMTI1LjI0LC0yMDUuMTYgMTMwLjM0LC0xOTUuODcgMTIwLjU3LC0xOTkuOTUgMTI1LjI0LC0yMDUuMTYiLz4KPC9nPgo8IS0tIHJlbmRlcmVyIC0tPgo8ZyBpZD0ibm9kZTUiIGNsYXNzPSJub2RlIj4KPHRpdGxlPnJlbmRlcmVyPC90aXRsZT4KPHBhdGggZmlsbD0iI2ZkZTZkOSIgc3Ryb2tlPSIjZjA1ODBiIiBkPSJNMjAzLjYsLTExNS4yNUMyMDMuNiwtMTE1LjI1IDk4LC0xMTUuMjUgOTgsLTExNS4yNSA5MiwtMTE1LjI1IDg2LC0xMDkuMjUgODYsLTEwMy4yNSA4NiwtMTAzLjI1IDg2LC05MS4yNSA4NiwtOTEuMjUgODYsLTg1LjI1IDkyLC03OS4yNSA5OCwtNzkuMjUgOTgsLTc5LjI1IDIwMy42LC03OS4yNSAyMDMuNiwtNzkuMjUgMjA5LjYsLTc5LjI1IDIxNS42LC04NS4yNSAyMTUuNiwtOTEuMjUgMjE1LjYsLTkxLjI1IDIxNS42LC0xMDMuMjUgMjE1LjYsLTEwMy4yNSAyMTUuNiwtMTA5LjI1IDIwOS42LC0xMTUuMjUgMjAzLjYsLTExNS4yNSIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNTAuOCIgeT0iLTkxLjQ1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiIGZpbGw9IiMxZjIyMjUiPnJlbmRlcmVyPC90ZXh0Pgo8L2c+CjwhLS0gdHJlZSYjNDU7Jmd0O3JlbmRlcmVyIC0tPgo8ZyBpZD0iZWRnZTQiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPnRyZWUmIzQ1OyZndDtyZW5kZXJlcjwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmMjIyNSIgZD0iTTE1MC44LC0xNTguMzZDMTUwLjgsLTE0OS4xMiAxNTAuOCwtMTM3LjQ4IDE1MC44LC0xMjYuOTEiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjE1NC4zLC0xMjcuMTMgMTUwLjgsLTExNy4xMyAxNDcuMywtMTI3LjEzIDE1NC4zLC0xMjcuMTMiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjExLjE4IiB5PSItMTMzIiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTAuMDAiIGZpbGw9IiMxZjIyMjUiPiAmIzE2MDtwYWludF9jb21tYW5kcywgZGFtYWdlPC90ZXh0Pgo8L2c+CjwhLS0gdHJlZSYjNDU7Jmd0O3NjaGVkdWxlciAtLT4KPGcgaWQ9ImVkZ2U3IiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT50cmVlJiM0NTsmZ3Q7c2NoZWR1bGVyPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTcwLjM1LC0xOTQuODZDMTgyLjA0LC0yMDUuMjMgMTk3LjA2LC0yMTguNTggMjA5Ljk2LC0yMzAuMDMiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjIwNy41NiwtMjMyLjU4IDIxNy4zNiwtMjM2LjYgMjEyLjIxLC0yMjcuMzQgMjA3LjU2LC0yMzIuNTgiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjMyLjEzIiB5PSItMjEyLjI1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTAuMDAiIGZpbGw9IiMxZjIyMjUiPmZyYW1lIHJlcXVlc3RzPC90ZXh0Pgo8L2c+CjwhLS0gZGlzcGxheSAtLT4KPGcgaWQ9Im5vZGU2IiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5kaXNwbGF5PC90aXRsZT4KPHBhdGggZmlsbD0iI2VjZWRlZCIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMjAzLjYsLTM2QzIwMy42LC0zNiA5OCwtMzYgOTgsLTM2IDkyLC0zNiA4NiwtMzAgODYsLTI0IDg2LC0yNCA4NiwtMTIgODYsLTEyIDg2LC02IDkyLDAgOTgsMCA5OCwwIDIwMy42LDAgMjAzLjYsMCAyMDkuNiwwIDIxNS42LC02IDIxNS42LC0xMiAyMTUuNiwtMTIgMjE1LjYsLTI0IDIxNS42LC0yNCAyMTUuNiwtMzAgMjA5LjYsLTM2IDIwMy42LC0zNiIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNTAuOCIgeT0iLTEyLjIiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+RGlzcGxheTwvdGV4dD4KPC9nPgo8IS0tIHJlbmRlcmVyJiM0NTsmZ3Q7ZGlzcGxheSAtLT4KPGcgaWQ9ImVkZ2U1IiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT5yZW5kZXJlciYjNDU7Jmd0O2Rpc3BsYXk8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xNTAuOCwtNzkuMTFDMTUwLjgsLTY5Ljg3IDE1MC44LC01OC4yMyAxNTAuOCwtNDcuNjYiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjE1NC4zLC00Ny44OCAxNTAuOCwtMzcuODggMTQ3LjMsLTQ3Ljg4IDE1NC4zLC00Ny44OCIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNjYuNTUiIHk9Ii01My43NSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjEwLjAwIiBmaWxsPSIjMWYyMjI1Ij4gJiMxNjA7cGl4ZWxzPC90ZXh0Pgo8L2c+CjwvZz4KPC9zdmc+Cg==" /></p>
+<p>Your application does these jobs:</p>
+<ol type="1">
+<li>It creates the platform, a window, and a renderer for the
+window.</li>
+<li>It gives each event from the platform to Basalt.</li>
+<li>It tells the scheduler about display refreshes, input, and frame
+requests.</li>
+<li>When the scheduler says that a frame is due, it runs Basalt’s frame
+cycle.</li>
+<li>It gives the paint commands and the damaged areas to the
+renderer.</li>
+</ol>
+<h2 id="coordinates">Coordinates</h2>
+<p>Magma uses two units. A <em>layout pixel</em> is a window coordinate
+before the display scale. A <em>device pixel</em> is one pixel of the
+screen.</p>
+<p>Events, window sizes, paint commands, and damage are in layout
+pixels. These are the same units that Basalt uses. The renderer
+multiplies by the display scale to get device pixels.
+<code>platform::pixel_size</code> and <code>renderer::pixel_size</code>
+give sizes in device pixels.</p>
+<h2 id="platform">Platform</h2>
+<p>A <code>platform</code> owns the windows of the process. Create one
+platform for each process. Use it only on the main thread. The one
+exception is <code>wake</code>, which you can call from any thread.</p>
+<p>Each window has a <code>window_id</code>. Each event from
+<code>poll_events</code> is a <code>platform_event</code>. It holds the
+window ID and a <code>basalt::event</code>. A quit request for the whole
+application uses window 0.</p>
+<p>The platform also gives <em>display ticks</em>. A display tick tells
+when the display refreshed and when it will refresh again. The frame
+scheduler uses ticks to start frames at the display’s refreshes.</p>
+<p>See <a href="#platform">Platform</a> for the details.</p>
+<h2 id="frame-scheduler">Frame scheduler</h2>
+<p>A <code>frame_scheduler</code> decides when the next frame can start.
+It has no clock. You give it the time on each call. Thus the same rules
+apply in an event loop and in a test.</p>
+<p>The scheduler starts at most one frame for each display refresh. It
+starts a frame for input at once when the previous frame is on the
+screen. This keeps the time from a key press to the screen short.</p>
+<p>See <a href="#frame-scheduling">Frame Scheduling</a> for the
+rules.</p>
+<h2 id="renderer">Renderer</h2>
+<p>A <code>renderer</code> draws <code>basalt::paint_commands</code>
+into one window, or into memory. It keeps the last frame. On each frame,
+it draws only the damaged areas and keeps the remaining pixels.</p>
+<p>The renderer has four backends: <code>raster</code> on the CPU, and
+<code>metal</code>, <code>vulkan</code>, and <code>d3d12</code> on the
+GPU. All backends give the same image within a small tolerance. The
+raster backend is the reference.</p>
+<p>See <a href="#rendering">Rendering</a> for the backends and their
+settings.</p>
+<h2 id="event-loop">Event loop</h2>
+<p>The event loop belongs to your application. Each pass through the
+loop does these steps:</p>
+<ol type="1">
+<li>While a frame is pending, call
+<code>platform::request_display_tick</code>.</li>
+<li>Call <code>platform::wait_for_events</code> with the timeout from
+<code>frame_scheduler::wait_timeout</code>.</li>
+<li>Give each tick from <code>take_display_tick</code> to
+<code>frame_scheduler::display_refreshed</code>.</li>
+<li>When <code>renderer::frame_in_flight</code> is false, call
+<code>frame_scheduler::frame_shown</code>.</li>
+<li>Call <code>poll_events</code> and give each event to Basalt. For
+input, call <code>request_input_frame</code>.</li>
+<li>When <code>frame_due</code> is true, call <code>begin_frame</code>,
+run Basalt’s frame cycle, and call <code>renderer::render</code>.</li>
+</ol>
+<p><img role="img" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIKICJodHRwOi8vd3d3LnczLm9yZy9HcmFwaGljcy9TVkcvMS4xL0RURC9zdmcxMS5kdGQiPgo8IS0tIEdlbmVyYXRlZCBieSBncmFwaHZpeiB2ZXJzaW9uIDE2LjEuMCAoMjAyNjA5MDQuMDEzOSkKIC0tPgo8IS0tIFRpdGxlOiBldmVudF9sb29wIFBhZ2VzOiAxIC0tPgo8c3ZnIHdpZHRoPSI2MDJwdCIgaGVpZ2h0PSIxMDM5cHQiCiB2aWV3Qm94PSIwLjAwIDAuMDAgNjAyLjAwIDEwMzkuMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiPgo8ZyBpZD0iZ3JhcGgwIiBjbGFzcz0iZ3JhcGgiIHRyYW5zZm9ybT0ic2NhbGUoMiAyKSByb3RhdGUoMCkgdHJhbnNsYXRlKDQgNTE1LjUpIj4KPHRpdGxlPmV2ZW50X2xvb3A8L3RpdGxlPgo8IS0tIHJlcXVlc3QgLS0+CjxnIGlkPSJub2RlMSIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+cmVxdWVzdDwvdGl0bGU+CjxwYXRoIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzFmMjIyNSIgZD0iTTI4MS4xMiwtNTExLjVDMjgxLjEyLC01MTEuNSAxNjYuODgsLTUxMS41IDE2Ni44OCwtNTExLjUgMTYwLjg4LC01MTEuNSAxNTQuODgsLTUwNS41IDE1NC44OCwtNDk5LjUgMTU0Ljg4LC00OTkuNSAxNTQuODgsLTQ4Ny41IDE1NC44OCwtNDg3LjUgMTU0Ljg4LC00ODEuNSAxNjAuODgsLTQ3NS41IDE2Ni44OCwtNDc1LjUgMTY2Ljg4LC00NzUuNSAyODEuMTIsLTQ3NS41IDI4MS4xMiwtNDc1LjUgMjg3LjEyLC00NzUuNSAyOTMuMTIsLTQ4MS41IDI5My4xMiwtNDg3LjUgMjkzLjEyLC00ODcuNSAyOTMuMTIsLTQ5OS41IDI5My4xMiwtNDk5LjUgMjkzLjEyLC01MDUuNSAyODcuMTIsLTUxMS41IDI4MS4xMiwtNTExLjUiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMjI0IiB5PSItNDg3LjciIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+cmVxdWVzdF9kaXNwbGF5X3RpY2s8L3RleHQ+CjwvZz4KPCEtLSB3YWl0IC0tPgo8ZyBpZD0ibm9kZTIiIGNsYXNzPSJub2RlIj4KPHRpdGxlPndhaXQ8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZmRlNmQ5IiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xODQsLTQzOC41QzE4NCwtNDM4LjUgMTIsLTQzOC41IDEyLC00MzguNSA2LC00MzguNSAwLC00MzIuNSAwLC00MjYuNSAwLC00MjYuNSAwLC00MTQuNSAwLC00MTQuNSAwLC00MDguNSA2LC00MDIuNSAxMiwtNDAyLjUgMTIsLTQwMi41IDE4NCwtNDAyLjUgMTg0LC00MDIuNSAxOTAsLTQwMi41IDE5NiwtNDA4LjUgMTk2LC00MTQuNSAxOTYsLTQxNC41IDE5NiwtNDI2LjUgMTk2LC00MjYuNSAxOTYsLTQzMi41IDE5MCwtNDM4LjUgMTg0LC00MzguNSIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSI5OCIgeT0iLTQxNC43IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiIGZpbGw9IiMxZjIyMjUiPndhaXRfZm9yX2V2ZW50cyh3YWl0X3RpbWVvdXQpPC90ZXh0Pgo8L2c+CjwhLS0gcmVxdWVzdCYjNDU7Jmd0O3dhaXQgLS0+CjxnIGlkPSJlZGdlMSIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+cmVxdWVzdCYjNDU7Jmd0O3dhaXQ8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xOTMuMTgsLTQ3NS4xM0MxNzYuODUsLTQ2NS45MyAxNTYuNTksLTQ1NC41MiAxMzguOTcsLTQ0NC41OCIvPgo8cG9seWdvbiBmaWxsPSIjMWYyMjI1IiBzdHJva2U9IiMxZjIyMjUiIHBvaW50cz0iMTQwLjY5LC00NDEuNTQgMTMwLjI2LC00MzkuNjggMTM3LjI1LC00NDcuNjQgMTQwLjY5LC00NDEuNTQiLz4KPC9nPgo8IS0tIHRpY2sgLS0+CjxnIGlkPSJub2RlMyIgY2xhc3M9Im5vZGUiPgo8dGl0bGU+dGljazwvdGl0bGU+CjxwYXRoIGZpbGw9IiNmZmZmZmYiIHN0cm9rZT0iIzFmMjIyNSIgZD0iTTE1Ni4zOCwtMzY1LjVDMTU2LjM4LC0zNjUuNSA0My42MiwtMzY1LjUgNDMuNjIsLTM2NS41IDM3LjYyLC0zNjUuNSAzMS42MiwtMzU5LjUgMzEuNjIsLTM1My41IDMxLjYyLC0zNTMuNSAzMS42MiwtMzM2LjUgMzEuNjIsLTMzNi41IDMxLjYyLC0zMzAuNSAzNy42MiwtMzI0LjUgNDMuNjIsLTMyNC41IDQzLjYyLC0zMjQuNSAxNTYuMzgsLTMyNC41IDE1Ni4zOCwtMzI0LjUgMTYyLjM4LC0zMjQuNSAxNjguMzgsLTMzMC41IDE2OC4zOCwtMzM2LjUgMTY4LjM4LC0zMzYuNSAxNjguMzgsLTM1My41IDE2OC4zOCwtMzUzLjUgMTY4LjM4LC0zNTkuNSAxNjIuMzgsLTM2NS41IDE1Ni4zOCwtMzY1LjUiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTAwIiB5PSItMzQ4LjIiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+dGFrZV9kaXNwbGF5X3RpY2sg4oaSPC90ZXh0Pgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxMDAiIHk9Ii0zMzAuMiIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIiBmaWxsPSIjMWYyMjI1Ij5kaXNwbGF5X3JlZnJlc2hlZDwvdGV4dD4KPC9nPgo8IS0tIHdhaXQmIzQ1OyZndDt0aWNrIC0tPgo8ZyBpZD0iZWRnZTIiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPndhaXQmIzQ1OyZndDt0aWNrPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNOTguNDcsLTQwMi4wOEM5OC42NywtMzk0LjcgOTguOTIsLTM4NS44NSA5OS4xNSwtMzc3LjQiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjEwMi42NCwtMzc3LjQ5IDk5LjQyLC0zNjcuNCA5NS42NSwtMzc3LjMgMTAyLjY0LC0zNzcuNDkiLz4KPC9nPgo8IS0tIHNob3duIC0tPgo8ZyBpZD0ibm9kZTQiIGNsYXNzPSJub2RlIj4KPHRpdGxlPnNob3duPC90aXRsZT4KPHBhdGggZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTYyLjM4LC0yNzcuMjVDMTYyLjM4LC0yNzcuMjUgNTUuNjIsLTI3Ny4yNSA1NS42MiwtMjc3LjI1IDQ5LjYzLC0yNzcuMjUgNDMuNjIsLTI3MS4yNSA0My42MiwtMjY1LjI1IDQzLjYyLC0yNjUuMjUgNDMuNjIsLTI0OC4yNSA0My42MiwtMjQ4LjI1IDQzLjYyLC0yNDIuMjUgNDkuNjIsLTIzNi4yNSA1NS42MiwtMjM2LjI1IDU1LjYyLC0yMzYuMjUgMTYyLjM4LC0yMzYuMjUgMTYyLjM4LC0yMzYuMjUgMTY4LjM4LC0yMzYuMjUgMTc0LjM4LC0yNDIuMjUgMTc0LjM4LC0yNDguMjUgMTc0LjM4LC0yNDguMjUgMTc0LjM4LC0yNjUuMjUgMTc0LjM4LC0yNjUuMjUgMTc0LjM4LC0yNzEuMjUgMTY4LjM4LC0yNzcuMjUgMTYyLjM4LC0yNzcuMjUiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTA5IiB5PSItMjU5Ljk1IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiIGZpbGw9IiMxZjIyMjUiPmZyYW1lX2luX2ZsaWdodD8g4oaSPC90ZXh0Pgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxMDkiIHk9Ii0yNDEuOTUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+ZnJhbWVfc2hvd248L3RleHQ+CjwvZz4KPCEtLSB0aWNrJiM0NTsmZ3Q7c2hvd24gLS0+CjxnIGlkPSJlZGdlMyIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+dGljayYjNDU7Jmd0O3Nob3duPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTAyLjA0LC0zMjQuNDNDMTAzLjE0LC0zMTMuOTIgMTA0LjUyLC0zMDAuNzEgMTA1Ljc2LC0yODguODMiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjEwOS4yMiwtMjg5LjM2IDEwNi43OCwtMjc5LjA1IDEwMi4yNiwtMjg4LjYzIDEwOS4yMiwtMjg5LjM2Ii8+CjwvZz4KPCEtLSBwb2xsIC0tPgo8ZyBpZD0ibm9kZTUiIGNsYXNzPSJub2RlIj4KPHRpdGxlPnBvbGw8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xODMuNzUsLTE5OS4yNUMxODMuNzUsLTE5OS4yNSA1OC4yNSwtMTk5LjI1IDU4LjI1LC0xOTkuMjUgNTIuMjUsLTE5OS4yNSA0Ni4yNSwtMTkzLjI1IDQ2LjI1LC0xODcuMjUgNDYuMjUsLTE4Ny4yNSA0Ni4yNSwtMTcwLjI1IDQ2LjI1LC0xNzAuMjUgNDYuMjUsLTE2NC4yNSA1Mi4yNSwtMTU4LjI1IDU4LjI1LC0xNTguMjUgNTguMjUsLTE1OC4yNSAxODMuNzUsLTE1OC4yNSAxODMuNzUsLTE1OC4yNSAxODkuNzUsLTE1OC4yNSAxOTUuNzUsLTE2NC4yNSAxOTUuNzUsLTE3MC4yNSAxOTUuNzUsLTE3MC4yNSAxOTUuNzUsLTE4Ny4yNSAxOTUuNzUsLTE4Ny4yNSAxOTUuNzUsLTE5My4yNSAxODkuNzUsLTE5OS4yNSAxODMuNzUsLTE5OS4yNSIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxMjEiIHk9Ii0xODEuOTUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+cG9sbF9ldmVudHMg4oaSPC90ZXh0Pgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxMjEiIHk9Ii0xNjMuOTUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+ZXZlbnRfcm91dGVyOjpkaXNwYXRjaDwvdGV4dD4KPC9nPgo8IS0tIHNob3duJiM0NTsmZ3Q7cG9sbCAtLT4KPGcgaWQ9ImVkZ2U0IiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT5zaG93biYjNDU7Jmd0O3BvbGw8L3RpdGxlPgo8cGF0aCBmaWxsPSJub25lIiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xMTIuMTUsLTIzNS43OEMxMTMuMzcsLTIyOC4xIDExNC43OCwtMjE5LjE0IDExNi4xMiwtMjEwLjY3Ii8+Cjxwb2x5Z29uIGZpbGw9IiMxZjIyMjUiIHN0cm9rZT0iIzFmMjIyNSIgcG9pbnRzPSIxMTkuNTMsLTIxMS41IDExNy42MywtMjAxLjA4IDExMi42MiwtMjEwLjQxIDExOS41MywtMjExLjUiLz4KPC9nPgo8IS0tIGR1ZSAtLT4KPGcgaWQ9Im5vZGU2IiBjbGFzcz0ibm9kZSI+Cjx0aXRsZT5kdWU8L3RpdGxlPgo8cGF0aCBmaWxsPSIjZWNlZGVkIiBzdHJva2U9IiMxZjIyMjUiIGQ9Ik0xNDAuMjgsLTExOC42NkMxNDAuMjgsLTExOC42NiA4Mi4xNCwtMTA1Ljg0IDgyLjE0LC0xMDUuODQgNzYuMjgsLTEwNC41NCA3Ni4yOCwtMTAxLjk2IDgyLjE0LC0xMDAuNjYgODIuMTQsLTEwMC42NiAxNDAuMjgsLTg3Ljg0IDE0MC4yOCwtODcuODQgMTQ2LjE0LC04Ni41NCAxNTcuODYsLTg2LjU0IDE2My43MiwtODcuODQgMTYzLjcyLC04Ny44NCAyMjEuODYsLTEwMC42NiAyMjEuODYsLTEwMC42NiAyMjcuNzIsLTEwMS45NiAyMjcuNzIsLTEwNC41NCAyMjEuODYsLTEwNS44NCAyMjEuODYsLTEwNS44NCAxNjMuNzIsLTExOC42NiAxNjMuNzIsLTExOC42NiAxNTcuODYsLTExOS45NiAxNDYuMTQsLTExOS45NiAxNDAuMjgsLTExOC42NiIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIxNTIiIHk9Ii05Ny40NSIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjE0LjAwIiBmaWxsPSIjMWYyMjI1Ij5mcmFtZV9kdWU/PC90ZXh0Pgo8L2c+CjwhLS0gcG9sbCYjNDU7Jmd0O2R1ZSAtLT4KPGcgaWQ9ImVkZ2U1IiBjbGFzcz0iZWRnZSI+Cjx0aXRsZT5wb2xsJiM0NTsmZ3Q7ZHVlPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTI5LjMxLC0xNTguMDVDMTMyLjg4LC0xNDkuNTkgMTM3LjEsLTEzOS41NyAxNDAuOTMsLTEzMC40OSIvPgo8cG9seWdvbiBmaWxsPSIjMWYyMjI1IiBzdHJva2U9IiMxZjIyMjUiIHBvaW50cz0iMTQ0LjA5LC0xMzIuMDEgMTQ0Ljc1LC0xMjEuNDQgMTM3LjY0LC0xMjkuMjkgMTQ0LjA5LC0xMzIuMDEiLz4KPC9nPgo8IS0tIGR1ZSYjNDU7Jmd0O3JlcXVlc3QgLS0+CjxnIGlkPSJlZGdlNyIgY2xhc3M9ImVkZ2UiPgo8dGl0bGU+ZHVlJiM0NTsmZ3Q7cmVxdWVzdDwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmMjIyNSIgZD0iTTE3Ni4zOCwtMTE2LjM4QzE5Ny4yNiwtMTI4LjY5IDIyNCwtMTQ5Ljg4IDIyNCwtMTc3Ljc1IDIyNCwtNDIxLjUgMjI0LC00MjEuNSAyMjQsLTQyMS41IDIyNCwtNDM1LjQyIDIyNCwtNDUwLjg3IDIyNCwtNDYzLjgiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjIyMC41LC00NjMuNzcgMjI0LC00NzMuNzcgMjI3LjUsLTQ2My43NyAyMjAuNSwtNDYzLjc3Ii8+Cjx0ZXh0IHhtbDpzcGFjZT0icHJlc2VydmUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjIyOS4yNSIgeT0iLTI5NyIgZm9udC1mYW1pbHk9IkhlbHZldGljYSxzYW5zLVNlcmlmIiBmb250LXNpemU9IjEwLjAwIiBmaWxsPSIjMWYyMjI1Ij5ubzwvdGV4dD4KPC9nPgo8IS0tIGZyYW1lIC0tPgo8ZyBpZD0ibm9kZTciIGNsYXNzPSJub2RlIj4KPHRpdGxlPmZyYW1lPC90aXRsZT4KPHBhdGggZmlsbD0iI2ZkZTZkOSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMjY0LjUsLTM4QzI2NC41LC0zOCAxNDkuNSwtMzggMTQ5LjUsLTM4IDE0My41LC0zOCAxMzcuNSwtMzIgMTM3LjUsLTI2IDEzNy41LC0yNiAxMzcuNSwtMTIgMTM3LjUsLTEyIDEzNy41LC02IDE0My41LDAgMTQ5LjUsMCAxNDkuNSwwIDI2NC41LDAgMjY0LjUsMCAyNzAuNSwwIDI3Ni41LC02IDI3Ni41LC0xMiAyNzYuNSwtMTIgMjc2LjUsLTI2IDI3Ni41LC0yNiAyNzYuNSwtMzIgMjcwLjUsLTM4IDI2NC41LC0zOCIvPgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyMDciIHk9Ii0yMC43IiBmb250LWZhbWlseT0iSGVsdmV0aWNhLHNhbnMtU2VyaWYiIGZvbnQtc2l6ZT0iMTQuMDAiIGZpbGw9IiMxZjIyMjUiPmJlZ2luX2ZyYW1lLCBsYXlvdXQsPC90ZXh0Pgo8dGV4dCB4bWw6c3BhY2U9InByZXNlcnZlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiB4PSIyMDciIHk9Ii01LjciIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxNC4wMCIgZmlsbD0iIzFmMjIyNSI+cGFpbnQsIHJlbmRlcjwvdGV4dD4KPC9nPgo8IS0tIGR1ZSYjNDU7Jmd0O2ZyYW1lIC0tPgo8ZyBpZD0iZWRnZTYiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPmR1ZSYjNDU7Jmd0O2ZyYW1lPC90aXRsZT4KPHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYyMjI1IiBkPSJNMTYyLjA5LC04Ny4xNkMxNjkuNCwtNzYuMjIgMTc5LjUxLC02MS4xMSAxODguMjgsLTQ3Ljk5Ii8+Cjxwb2x5Z29uIGZpbGw9IiMxZjIyMjUiIHN0cm9rZT0iIzFmMjIyNSIgcG9pbnRzPSIxOTEuMTcsLTQ5Ljk2IDE5My44MiwtMzkuNyAxODUuMzYsLTQ2LjA3IDE5MS4xNywtNDkuOTYiLz4KPHRleHQgeG1sOnNwYWNlPSJwcmVzZXJ2ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgeD0iMTkwLjY3IiB5PSItNTcuNzUiIGZvbnQtZmFtaWx5PSJIZWx2ZXRpY2Esc2Fucy1TZXJpZiIgZm9udC1zaXplPSIxMC4wMCIgZmlsbD0iIzFmMjIyNSI+eWVzPC90ZXh0Pgo8L2c+CjwhLS0gZnJhbWUmIzQ1OyZndDtyZXF1ZXN0IC0tPgo8ZyBpZD0iZWRnZTgiIGNsYXNzPSJlZGdlIj4KPHRpdGxlPmZyYW1lJiM0NTsmZ3Q7cmVxdWVzdDwvdGl0bGU+CjxwYXRoIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmMjIyNSIgZD0iTTIyOC40MiwtMzguM0MyNDMuODcsLTUzLjYzIDI2MiwtNzcgMjYyLC0xMDIuMjUgMjYyLC00MjEuNSAyNjIsLTQyMS41IDI2MiwtNDIxLjUgMjYyLC00MzcuNTQgMjU0LjM2LC00NTMuNDcgMjQ1Ljk0LC00NjYuMTYiLz4KPHBvbHlnb24gZmlsbD0iIzFmMjIyNSIgc3Ryb2tlPSIjMWYyMjI1IiBwb2ludHM9IjI0My4zMywtNDYzLjc5IDI0MC4zNCwtNDczLjk1IDI0OS4wMiwtNDY3Ljg3IDI0My4zMywtNDYzLjc5Ii8+CjwvZz4KPC9nPgo8L3N2Zz4K" /></p>
+<p>The wait ends at a display tick, at an event, at a call to
+<code>wake</code>, or at the timeout. Thus an idle application uses no
+processor time.</p>
+<h2 id="threads">Threads</h2>
+<p>Magma is not thread-safe. Call the platform, the scheduler, and the
+renderer from the main thread. To end a wait from another thread, call
+<code>platform::wake</code>. Then the loop runs, and your code on the
+main thread reads the result of the other thread.</p>
+<p>The raster backend draws large areas on up to four threads. Blend2D
+manages these threads. The drawing is complete when <code>render</code>
+returns.</p>
+<h2 id="errors">Errors</h2>
+<p>Functions that can fail return <code>std::expected</code>. The error
+types are <code>platform_error</code> and <code>render_error</code>.
+Each has a <code>message</code> that describes the problem.</p>
+<p>A failed <code>render</code> can be temporary. For example, the
+window can be hidden or in a resize. Mark the tree for repaint and try
+again on the next frame. Do not stop the program for one failed
+frame.</p>
+<h1 id="getting-started">Getting Started</h1>
+<p>This chapter builds a small program in seven steps. The program opens
+a window with a label and a button. Each click on the button increases
+the count in the label. The program is the same as
+<code>examples/hello_window.cpp</code>.</p>
+<h2 id="step-1-add-magma-to-your-project">Step 1: Add Magma to your
+project</h2>
+<p>Add Magma with CMake <code>FetchContent</code>. Use a release tag as
+<code>GIT_TAG</code>. The target <code>magma::magma</code> brings
+<code>basalt::basalt</code> with it.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode cmake"><code class="sourceCode cmake"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">cmake_minimum_required</span>(<span class="ot">VERSION</span> <span class="dt">3.25</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">project</span>(hello <span class="ot">LANGUAGES</span> <span class="ot">CXX</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">include</span>(<span class="im">FetchContent</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">FetchContent_Declare</span>(magma</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="ot">GIT_REPOSITORY</span> https://github.com/nadiasvertex/magma.git</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="ot">GIT_TAG</span> v0.<span class="dt">6.0</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">FetchContent_MakeAvailable</span>(magma)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">add_executable</span>(<span class="bn">hello</span> main.cpp)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">target_link_libraries</span>(<span class="bn">hello</span> <span class="ot">PRIVATE</span> <span class="bn">magma::magma</span>)</span></code></pre></div>
+<p>Magma can also be used with <code>add_subdirectory</code> or
+<code>find_package</code>. See <code>README.md</code> for both. The
+build downloads Basalt, SDL 3, and Blend2D at configure time. On Linux,
+install the X11 and Wayland development packages first.
+<code>README.md</code> lists them.</p>
+<h2 id="step-2-create-the-platform-and-the-window">Step 2: Create the
+platform and the window</h2>
+<p>Create one <code>platform</code>. Then create a window with the
+graphics API that <code>preferred_graphics_api</code> gives. The
+renderer can use the GPU only with that graphics API.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;basalt/basalt.h&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;magma/magma.h&quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> main<span class="op">()</span> <span class="op">-&gt;</span> <span class="dt">int</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> created <span class="op">=</span> magma<span class="op">::</span>platform<span class="op">::</span>create<span class="op">();</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(!</span>created<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> created<span class="op">.</span>error<span class="op">().</span>message <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> platform <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(*</span>created<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="at">const</span> window <span class="op">=</span> platform<span class="op">.</span>create_window<span class="op">({</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span>graphics <span class="op">=</span> magma<span class="op">::</span>preferred_graphics_api<span class="op">(</span>magma<span class="op">::</span>backend_preference<span class="op">::</span>automatic<span class="op">),</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span>title <span class="op">=</span> <span class="st">&quot;Hello, Magma&quot;</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>      <span class="op">.</span>size <span class="op">=</span> <span class="op">{</span><span class="dv">480</span><span class="op">,</span> <span class="dv">240</span><span class="op">},</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="op">});</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(!</span>window<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> window<span class="op">.</span>error<span class="op">().</span>message <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span></code></pre></div>
+<p>The window size is in layout pixels. On a display with a scale of 2,
+the window has 960 by 480 device pixels.</p>
+<h2 id="step-3-create-the-renderer">Step 3: Create the renderer</h2>
+<p>Create a renderer for the window. The platform must stay alive while
+the renderer exists.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> rendering <span class="op">=</span> magma<span class="op">::</span>renderer<span class="op">::</span>create<span class="op">(</span>platform<span class="op">,</span> <span class="op">*</span>window<span class="op">);</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(!</span>rendering<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> rendering<span class="op">.</span>error<span class="op">().</span>message <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> renderer <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(*</span>rendering<span class="op">);</span></span></code></pre></div>
+<p>The default preference is <code>backend_preference::automatic</code>.
+The renderer uses the GPU when it can, and the CPU when it cannot.
+<code>renderer.active_backend()</code> tells which backend it uses.</p>
+<h2 id="step-4-create-the-widget-tree">Step 4: Create the widget
+tree</h2>
+<p>Load fonts, make a Basalt widget tree, and add widgets. Use the
+window’s size and display scale. <code>system_dark_mode</code> tells
+which color scheme the operating system uses.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> fonts <span class="op">=</span> basalt<span class="op">::</span>text<span class="op">::</span>font_manager<span class="op">{};</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(</span>fonts<span class="op">.</span>add_system_fonts<span class="op">()</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;No system fonts found</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="at">const</span> shaper <span class="op">=</span> basalt<span class="op">::</span>text<span class="op">::</span>text_shaper<span class="op">{</span>fonts<span class="op">};</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="at">const</span> scheme <span class="op">=</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      platform<span class="op">.</span>system_dark_mode<span class="op">()</span> <span class="op">?</span> basalt<span class="op">::</span>color_scheme<span class="op">::</span>dark <span class="op">:</span> basalt<span class="op">::</span>color_scheme<span class="op">::</span>light<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> tree <span class="op">=</span> basalt<span class="op">::</span>widget_tree<span class="op">{</span>basalt<span class="op">::</span>make_theme<span class="op">(</span>scheme<span class="op">)};</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  tree<span class="op">.</span>set_text_shaper<span class="op">(&amp;</span>shaper<span class="op">);</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  tree<span class="op">.</span>set_viewport<span class="op">(</span>platform<span class="op">.</span>window_size<span class="op">(*</span>window<span class="op">).</span>value_or<span class="op">(</span>basalt<span class="op">::</span>size<span class="op">{</span><span class="dv">480</span><span class="op">,</span> <span class="dv">240</span><span class="op">}));</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="op">(</span><span class="dt">void</span><span class="op">)</span>tree<span class="op">.</span>set_scale<span class="op">({.</span>display <span class="op">=</span> platform<span class="op">.</span>display_scale<span class="op">(*</span>window<span class="op">).</span>value_or<span class="op">(</span><span class="fl">1.0</span><span class="bu">F</span><span class="op">)});</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> clicks <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="op">&amp;</span>root <span class="op">=</span> tree<span class="op">.</span>emplace_root<span class="op">&lt;</span>basalt<span class="op">::</span>box<span class="op">&gt;(</span>basalt<span class="op">::</span>axis<span class="op">::</span>vertical<span class="op">);</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>  root<span class="op">.</span>set_padding<span class="op">(</span>basalt<span class="op">::</span>length_insets<span class="op">::</span>uniform<span class="op">(</span>basalt<span class="op">::</span>fixed<span class="op">(</span><span class="dv">16</span><span class="op">)));</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  root<span class="op">.</span>set_gap<span class="op">(</span>basalt<span class="op">::</span>fixed<span class="op">(</span><span class="dv">8</span><span class="op">));</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="op">&amp;</span>status <span class="op">=</span> root<span class="op">.</span>emplace_child<span class="op">&lt;</span>basalt<span class="op">::</span>label<span class="op">&gt;(</span><span class="st">&quot;Clicks: 0&quot;</span><span class="op">);</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="op">&amp;</span>press <span class="op">=</span> root<span class="op">.</span>emplace_child<span class="op">&lt;</span>basalt<span class="op">::</span>button<span class="op">&gt;(</span><span class="st">&quot;Count a click&quot;</span><span class="op">);</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  press<span class="op">.</span>set_variant<span class="op">(</span>basalt<span class="op">::</span>button_variant<span class="op">::</span>primary<span class="op">);</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  press<span class="op">.</span>set_on_press<span class="op">([&amp;]</span> <span class="op">{</span> status<span class="op">.</span>set_text<span class="op">(</span><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;Clicks: </span><span class="sc">{}</span><span class="st">&quot;</span><span class="op">,</span> <span class="op">++</span>clicks<span class="op">));</span> <span class="op">});</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> router <span class="op">=</span> basalt<span class="op">::</span>event_router<span class="op">{</span>tree<span class="op">};</span></span></code></pre></div>
+<p>The router keeps the viewport and the scale up to date after this
+step. It reads them from the <code>resized</code> and
+<code>scale_changed</code> window events that the platform sends.</p>
+<h2 id="step-5-connect-the-scheduler-to-the-tree">Step 5: Connect the
+scheduler to the tree</h2>
+<p>Make a <code>frame_scheduler</code> with the display’s refresh
+interval. When the tree needs a frame, request one from the scheduler
+and end the wait for events.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> scheduler <span class="op">=</span> magma<span class="op">::</span>frame_scheduler<span class="op">{</span>refresh_interval<span class="op">(</span>platform<span class="op">,</span> <span class="op">*</span>window<span class="op">)};</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  tree<span class="op">.</span>set_frame_request_handler<span class="op">([&amp;]</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    scheduler<span class="op">.</span>request_frame<span class="op">();</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    platform<span class="op">.</span>wake<span class="op">();</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">});</span></span></code></pre></div>
+<p><code>refresh_interval</code> is a small function in the example. It
+converts <code>display_refresh_rate</code> to nanoseconds, and uses 60
+Hz when the system does not report a rate.</p>
+<h2 id="step-6-draw-a-frame">Step 6: Draw a frame</h2>
+<p>Put the frame in a function. It runs Basalt’s frame cycle and gives
+the result to the renderer.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="at">const</span> run_frame <span class="op">=</span> <span class="op">[&amp;]</span> <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="at">const</span> frame_time <span class="op">=</span> now_ns<span class="op">();</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    scheduler<span class="op">.</span>begin_frame<span class="op">(</span>frame_time<span class="op">);</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    tree<span class="op">.</span>advance_animations<span class="op">(</span><span class="bu">std::</span>chrono::nanoseconds<span class="op">{</span>frame_time<span class="op">});</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    tree<span class="op">.</span>update_layout<span class="op">();</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    router<span class="op">.</span>update_hover<span class="op">();</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    renderer<span class="op">.</span>set_metrics<span class="op">(</span>tree<span class="op">.</span>viewport<span class="op">(),</span> tree<span class="op">.</span>scale<span class="op">().</span>display<span class="op">);</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="at">const</span> damage <span class="op">=</span> tree<span class="op">.</span>take_damage<span class="op">();</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>damage<span class="op">.</span>empty<span class="op">()</span> <span class="op">&amp;&amp;</span> <span class="op">!</span>renderer<span class="op">.</span>needs_full_redraw<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>      <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> commands <span class="op">=</span> basalt<span class="op">::</span>paint_commands<span class="op">{};</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    basalt<span class="op">::</span>paint_tree<span class="op">(</span>tree<span class="op">,</span> commands<span class="op">);</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="kw">auto</span> <span class="at">const</span> drawn <span class="op">=</span> renderer<span class="op">.</span>render<span class="op">(</span>commands<span class="op">,</span> damage<span class="op">,</span> tree<span class="op">.</span>theme<span class="op">().</span>colors<span class="op">.</span>background_default<span class="op">);</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        <span class="op">!</span>drawn<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>      <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> drawn<span class="op">.</span>error<span class="op">().</span>message <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    tree<span class="op">.</span>collect_garbage<span class="op">();</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span></code></pre></div>
+<p><code>set_metrics</code> tells the renderer the viewport and the
+scale. A change of size or scale discards the frame and sets
+<code>needs_full_redraw</code>. Then <code>render</code> ignores the
+damage and draws the whole viewport. This is why the function paints the
+whole tree.</p>
+<p><code>now_ns</code> gives the time on the platform’s event clock,
+from <code>platform::event_clock_now</code>. Use the same clock for the
+scheduler, the display ticks, and the events.</p>
+<h2 id="step-7-run-the-event-loop">Step 7: Run the event loop</h2>
+<p>The loop waits for events, updates the scheduler, sends events to the
+tree, and draws frames.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> running <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  scheduler<span class="op">.</span>request_frame<span class="op">();</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">while</span> <span class="op">(</span>running<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>scheduler<span class="op">.</span>pending<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>      <span class="op">(</span><span class="dt">void</span><span class="op">)</span>platform<span class="op">.</span>request_display_tick<span class="op">(*</span>window<span class="op">);</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> <span class="at">const</span> timeout <span class="op">=</span> scheduler<span class="op">.</span>wait_timeout<span class="op">(</span>now_ns<span class="op">());</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    platform<span class="op">.</span>wait_for_events<span class="op">(</span>timeout <span class="op">?</span> <span class="bu">std::</span>optional<span class="op">{</span><span class="bu">std::</span>chrono::nanoseconds<span class="op">{*</span>timeout<span class="op">}}</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>                                     <span class="op">:</span> <span class="bu">std::</span>nullopt<span class="op">);</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="kw">auto</span> <span class="at">const</span> tick <span class="op">=</span> platform<span class="op">.</span>take_display_tick<span class="op">(*</span>window<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>      scheduler<span class="op">.</span>display_refreshed<span class="op">(</span>tick<span class="op">-&gt;</span>time<span class="op">.</span>count<span class="op">(),</span> tick<span class="op">-&gt;</span>interval<span class="op">.</span>count<span class="op">());</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>renderer<span class="op">.</span>frame_in_flight<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>      scheduler<span class="op">.</span>frame_shown<span class="op">();</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="kw">auto</span> <span class="at">const</span> <span class="op">&amp;</span>incoming <span class="op">:</span> platform<span class="op">.</span>poll_events<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> <span class="op">(</span><span class="kw">auto</span> <span class="at">const</span> <span class="op">*</span><span class="at">const</span> event <span class="op">=</span> <span class="bu">std::</span>get_if<span class="op">&lt;</span>basalt<span class="op">::</span>window_event<span class="op">&gt;(&amp;</span>incoming<span class="op">.</span>event<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>event<span class="op">-&gt;</span>action <span class="op">==</span> basalt<span class="op">::</span>window_action<span class="op">::</span>close_requested<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>          running <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>event<span class="op">-&gt;</span>action <span class="op">==</span> basalt<span class="op">::</span>window_action<span class="op">::</span>shown <span class="op">||</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>                   event<span class="op">-&gt;</span>action <span class="op">==</span> basalt<span class="op">::</span>window_action<span class="op">::</span>resized <span class="op">||</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>                   event<span class="op">-&gt;</span>action <span class="op">==</span> basalt<span class="op">::</span>window_action<span class="op">::</span>scale_changed<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>          <span class="cf">if</span> <span class="op">(!</span>scheduler<span class="op">.</span>follows_display<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>            scheduler<span class="op">.</span>set_interval<span class="op">(</span>refresh_interval<span class="op">(</span>platform<span class="op">,</span> <span class="op">*</span>window<span class="op">));</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>          <span class="op">}</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>          renderer<span class="op">.</span>request_full_redraw<span class="op">();</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>          scheduler<span class="op">.</span>request_frame<span class="op">();</span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>      <span class="op">}</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>      router<span class="op">.</span>dispatch<span class="op">(</span>incoming<span class="op">.</span>event<span class="op">);</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span> <span class="op">(</span>is_input<span class="op">(</span>incoming<span class="op">.</span>event<span class="op">)</span> <span class="op">&amp;&amp;</span> scheduler<span class="op">.</span>pending<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        scheduler<span class="op">.</span>request_input_frame<span class="op">();</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>      <span class="op">}</span></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>running <span class="op">&amp;&amp;</span> scheduler<span class="op">.</span>frame_due<span class="op">(</span>now_ns<span class="op">()))</span> <span class="op">{</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>      run_frame<span class="op">();</span></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> EXIT_SUCCESS<span class="op">;</span></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>These are the important points:</p>
+<ul>
+<li>Ask for a display tick only while a frame is pending. An idle
+application gets no ticks and uses no processor time.</li>
+<li>When the window is shown, resized, or moved to another display,
+request a full redraw. The window can be on a display with a different
+refresh rate.</li>
+<li>When an input event causes a frame, call
+<code>request_input_frame</code>. Then the frame starts at once if the
+previous frame is on the screen.</li>
+</ul>
+<p>Build and run the program. Click the button. The label shows the
+number of clicks.</p>
+<h2 id="where-to-go-next">Where to go next</h2>
+<ul>
+<li>Read <a href="#architecture">Architecture</a> for the rules of each
+part.</li>
+<li>Read <a href="#frame-scheduling">Frame Scheduling</a> to learn when
+frames start.</li>
+<li>Read <a href="#rendering">Rendering</a> to select a backend or
+render without a window.</li>
+<li>Open <code>examples/event_loop.cpp</code> for a loop that draws an
+animation on every refresh.</li>
+<li>Read <code>spec/CONVENTIONS.md</code> before you change the
+library.</li>
+</ul>
+<h1 id="platform-1">Platform</h1>
+<p>The <code>platform</code> class connects your application to the
+operating system. It creates windows, translates input into Basalt
+events, and supplies the clipboard, cursors, file dialogs, and text
+input. It also sends display ticks for frame pacing. The header is
+<code>magma/platform.h</code>.</p>
+<h2 id="create-the-platform">Create the platform</h2>
+<p>Call <code>platform::create</code> once, at the start of the program,
+on the main thread. It returns a <code>platform</code> or a
+<code>platform_error</code>.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> created <span class="op">=</span> magma<span class="op">::</span>platform<span class="op">::</span>create<span class="op">();</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(!</span>created<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> created<span class="op">.</span>error<span class="op">().</span>message <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> platform <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(*</span>created<span class="op">);</span></span></code></pre></div>
+<p>The platform can move but cannot copy. Keep it alive while windows
+and renderers exist.</p>
+<h2 id="windows">Windows</h2>
+<p><code>create_window</code> takes a <code>window_config</code> and
+returns a <code>window_id</code>.</p>
+<table>
+<colgroup>
+<col style="width: 26%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th>Field</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>graphics</code></td>
+<td><code>software</code></td>
+<td>The drawing API of the window. It cannot change after the window
+exists.</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>empty</td>
+<td>The title in the title bar.</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>960 by 640</td>
+<td>The size in layout pixels.</td>
+</tr>
+<tr>
+<td><code>resizable</code></td>
+<td><code>true</code></td>
+<td>The user can change the size.</td>
+</tr>
+<tr>
+<td><code>high_pixel_density</code></td>
+<td><code>true</code></td>
+<td>The window uses the full resolution of a high-density display.</td>
+</tr>
+</tbody>
+</table>
+<p>Set <code>graphics</code> to the value from
+<code>preferred_graphics_api</code>. If you set <code>software</code>,
+the renderer can use only the raster backend.</p>
+<p>These functions read and change a window:</p>
+<ul>
+<li><code>window_size</code> gives the size in layout pixels.
+<code>pixel_size</code> gives the size in device pixels.</li>
+<li><code>display_scale</code> gives the number of device pixels for
+each layout pixel.</li>
+<li><code>display_refresh_rate</code> gives the refresh rate in hertz,
+if the system reports one.</li>
+<li><code>window_position</code> and <code>set_window_position</code>
+use layout pixels on the desktop.</li>
+<li><code>set_window_size</code>, <code>set_window_title</code>, and
+<code>set_fullscreen</code> change the window.
+<code>set_fullscreen(window, false)</code> returns the window to its
+earlier size and position.</li>
+<li><code>system_dark_mode</code> is true when the operating system uses
+a dark appearance.</li>
+<li><code>destroy_window</code> closes the window.</li>
+</ul>
+<p>Functions that read a window return <code>std::nullopt</code> for an
+unknown window ID.</p>
+<h2 id="events">Events</h2>
+<p><code>poll_events</code> returns all queued events as a
+<code>std::vector&lt;platform_event&gt;</code>. Each item holds the
+window ID and a <code>basalt::event</code>. Give the event to the
+<code>event_router</code> of that window’s tree.</p>
+<p>The platform makes these Basalt events:</p>
+<table>
+<colgroup>
+<col style="width: 66%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Basalt event</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>window_event</code></td>
+<td>Resize, scale change, focus change, close request, shown, and
+hidden</td>
+</tr>
+<tr>
+<td><code>key_event</code></td>
+<td>Key down and key up, with repeat and modifiers</td>
+</tr>
+<tr>
+<td><code>text_input_event</code></td>
+<td>Text that the keyboard or an input method commits</td>
+</tr>
+<tr>
+<td><code>ime_event</code></td>
+<td>The composition text of an input method, with its selection</td>
+</tr>
+<tr>
+<td><code>pointer_event</code></td>
+<td>Mouse movement, buttons, enter, and leave. Touch also makes pointer
+events.</td>
+</tr>
+<tr>
+<td><code>wheel_event</code></td>
+<td>Mouse wheel and trackpad scroll, in layout pixels</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>resized</code> window event holds the new viewport. A
+<code>scale_changed</code> event holds the new display scale. Basalt’s
+<code>event_router</code> uses these values to update the tree. A
+<code>close_requested</code> event with window 0 is a quit request for
+the whole application.</p>
+<p>Event times are on the platform’s event clock.
+<code>platform::event_clock_now</code> gives the current time on that
+clock. Use it for the frame scheduler too.</p>
+<h2 id="wait-for-events">Wait for events</h2>
+<p><code>wait_for_events</code> blocks until one of these occurs:</p>
+<ul>
+<li>An event is queued.</li>
+<li>A display tick arrives.</li>
+<li>Another thread calls <code>wake</code>.</li>
+<li>The timeout passes. A timeout of <code>std::nullopt</code> waits
+with no limit.</li>
+</ul>
+<p>The events stay in the queue. Call <code>poll_events</code> after the
+wait to get them.</p>
+<p><code>wake</code> is the only function that you can call from another
+thread. Call it when a background task finishes, so that the main loop
+can read the result.</p>
+<h2 id="display-ticks">Display ticks</h2>
+<p>A display tick tells when the display showed its latest frame, and
+the time until its next refresh. The frame scheduler uses ticks to start
+frames at the display’s refreshes.</p>
+<p><code>request_display_tick</code> asks for one tick at the next
+refresh of the window’s display. The tick ends a wait for events.
+<code>take_display_tick</code> returns it. Ask again for each tick. If
+you do not ask, no ticks arrive, so an idle application uses no
+processor time.</p>
+<p>Only macOS 14 and later can send ticks. On other systems,
+<code>request_display_tick</code> returns false. Then use
+<code>display_refresh_rate</code> to set the scheduler’s interval. See
+<a href="#frame-scheduling">Frame Scheduling</a>.</p>
+<h2 id="live-resize">Live resize</h2>
+<p>On some systems, the operating system holds the event loop while the
+user drags the edge of a window. On macOS, <code>poll_events</code> does
+not run during the drag. Without a frame, the system stretches the last
+frame until the drag ends.</p>
+<p><code>set_live_resize_callback</code> sets a function that runs for
+each resize during the drag. It runs on the main thread, inside the
+system’s resize loop. Give the event to the tree and draw one frame,
+then return. The same events also come from the next
+<code>poll_events</code>. An empty function removes the callback.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>platform<span class="op">.</span>set_live_resize_callback<span class="op">([&amp;](</span>magma<span class="op">::</span>platform_event <span class="at">const</span> <span class="op">&amp;</span>resize<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  router<span class="op">.</span>dispatch<span class="op">(</span>resize<span class="op">.</span>event<span class="op">);</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  run_frame<span class="op">();</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span></code></pre></div>
+<p>Do not let the callback run while your loop is already in
+<code>poll_events</code> or in a frame. Use a flag to prevent this.
+Remove the callback before the objects that it uses are destroyed.</p>
+<h2 id="clipboard-and-cursors">Clipboard and cursors</h2>
+<p><code>clipboard_text</code> returns the text on the clipboard.
+<code>set_clipboard_text</code> replaces it. Both use UTF-8.</p>
+<p><code>set_cursor</code> changes the pointer shape for the
+application. The shapes are <code>arrow</code>, <code>text</code>,
+<code>crosshair</code>, <code>pointer</code>,
+<code>resize_horizontal</code>, <code>resize_vertical</code>, and
+<code>wait</code>.</p>
+<h2 id="file-dialogs">File dialogs</h2>
+<p><code>show_open_file_dialog</code> and
+<code>show_save_file_dialog</code> show the system’s file dialog. They
+return at once. The callback runs when the user closes the dialog.</p>
+<ul>
+<li>The callback receives <code>std::nullopt</code> when the user
+cancels the dialog.</li>
+<li>Otherwise it receives the selected paths.</li>
+<li>Each <code>file_filter</code> has a name, such as
+<code>&quot;Images&quot;</code>, and a pattern, such as
+<code>&quot;png;jpg&quot;</code>.</li>
+<li><code>allow_many</code> lets the user select more than one file in
+the open dialog.</li>
+<li><code>default_location</code> is the first folder or file name that
+the dialog shows.</li>
+</ul>
+<p>If the callback throws an exception, the platform keeps it. The next
+call to <code>poll_events</code> throws it again.</p>
+<p>Basalt widgets that need a file use the tree’s
+<code>file_dialog</code>. To connect them, set a function with
+<code>widget_tree::set_file_dialog</code> that calls these platform
+functions.</p>
+<h2 id="text-input">Text input</h2>
+<p>Text fields need text input from the keyboard and from input methods.
+Call <code>start_text_input</code> for the window to receive
+<code>text_input_event</code> and <code>ime_event</code> values. Call
+<code>stop_text_input</code> to stop.</p>
+<p><code>set_text_input_area</code> tells the input method where the
+text field is, in layout pixels. The input method puts its candidate
+window near this area. <code>cursor_offset</code> is the caret’s
+horizontal offset inside the area.</p>
+<h2 id="surfaces-for-other-renderers">Surfaces for other renderers</h2>
+<p>The platform also gives the window’s surface to a renderer outside
+Magma. These functions exist for applications that still use their own
+renderer. They will become private when Magma’s renderer replaces those
+renderers.</p>
+<table>
+<colgroup>
+<col style="width: 72%" />
+<col style="width: 27%" />
+</colgroup>
+<thead>
+<tr>
+<th>Function</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>present_pixels</code></td>
+<td>Copies premultiplied BGRA pixels to a <code>software</code> window
+and shows the damaged areas.</td>
+</tr>
+<tr>
+<td><code>metal_layer</code></td>
+<td>Gives the <code>CAMetalLayer</code> of a <code>metal</code>
+window.</td>
+</tr>
+<tr>
+<td><code>vulkan_instance_extensions</code>,
+<code>create_vulkan_surface</code>,
+<code>destroy_vulkan_surface</code></td>
+<td>Make a Vulkan surface for a <code>vulkan</code> window.</td>
+</tr>
+<tr>
+<td><code>win32_window_handle</code></td>
+<td>Gives the <code>HWND</code> of a window on Windows.</td>
+</tr>
+<tr>
+<td><code>create_gl_context</code>, <code>gl_proc_address</code>,
+<code>swap_gl_buffers</code></td>
+<td>Use OpenGL with an <code>opengl</code> window.</td>
+</tr>
+</tbody>
+</table>
+<p>Do not use these functions with Magma’s <code>renderer</code>. The
+renderer uses the surface itself.</p>
+<h1 id="frame-scheduling">Frame Scheduling</h1>
+<p>The <code>frame_scheduler</code> class decides when the next frame
+can start. It starts at most one frame for each display refresh, and it
+starts a frame for input at once when it can. The header is
+<code>magma/frame_scheduler.h</code>.</p>
+<h2 id="why-a-scheduler">Why a scheduler</h2>
+<p>A frame that starts at a bad time costs time or causes a missed
+refresh. A frame that starts at a refresh has a full refresh interval to
+finish. Two frames in one refresh interval waste work, because the
+display shows only one of them. A frame for a key press that waits for
+the next refresh adds up to one interval of latency.</p>
+<p>The scheduler applies these rules in one place. Your event loop asks
+it what to do.</p>
+<h2 id="time">Time</h2>
+<p>The scheduler has no clock. Each function that needs the time takes
+it as an argument, in nanoseconds. Use
+<code>platform::event_clock_now</code>, the same clock as the display
+ticks.</p>
+<p>Because the scheduler has no clock, a test can give it any sequence
+of times. The tests in <code>tests/magma/frame_scheduler_test.cpp</code>
+do this.</p>
+<h2 id="requests">Requests</h2>
+<p>These functions tell the scheduler that a frame is wanted:</p>
+<ul>
+<li><code>request_frame</code> asks for a frame. Use it for animations,
+for frame requests from the widget tree, and after a resize.</li>
+<li><code>request_input_frame</code> asks for a frame because of input.
+It can start sooner than a frame from <code>request_frame</code>.</li>
+</ul>
+<p>Requests combine. Many requests before the next frame cause one
+frame. <code>pending</code> is true while a request waits.</p>
+<h2 id="signals-from-the-loop">Signals from the loop</h2>
+<p>These functions tell the scheduler what happened:</p>
+<ul>
+<li><code>display_refreshed(time, interval)</code> reports a display
+tick. After the first call, <code>follows_display</code> is true. An
+<code>interval</code> of zero or less keeps the current interval.</li>
+<li><code>frame_shown</code> reports that the previous frame is on the
+screen, or that it drew nothing. Call it when
+<code>renderer::frame_in_flight</code> is false.</li>
+<li><code>begin_frame(now)</code> marks the pending frame as started. A
+request made during the frame causes another frame.</li>
+</ul>
+<h2 id="questions-from-the-loop">Questions from the loop</h2>
+<p>These functions tell the loop what to do:</p>
+<ul>
+<li><code>frame_due(now)</code> is true when a frame can start now.</li>
+<li><code>wait_timeout(now)</code> gives the time that the loop can
+wait. <code>std::nullopt</code> means that no frame is pending, so the
+loop can wait with no limit. Zero means that a frame is due now.</li>
+<li><code>next_frame_time()</code> gives the time when the pending frame
+can start.</li>
+</ul>
+<h2 id="rules">Rules</h2>
+<p>The scheduler starts the pending frame at the first time that one of
+these rules allows. The rules are in order.</p>
+<ol type="1">
+<li>The first frame starts at once.</li>
+<li>A frame for input starts at once if the previous frame is on the
+screen.</li>
+<li>With display ticks, a frame starts at the first refresh after the
+previous frame began.</li>
+<li>With display ticks, a frame starts at once if the previous frame is
+on the screen and began at least one interval ago. Thus the first frame
+after a pause does not wait for a refresh.</li>
+<li>With display ticks, if no tick arrives, a frame starts two intervals
+after the last refresh. For example, a hidden window gets no ticks.
+Frames then continue at the interval.</li>
+<li>Without display ticks, frames start at least one interval
+apart.</li>
+</ol>
+<p>The default interval is 16,666,667 nanoseconds, which is 60 Hz. Set
+the real interval in the constructor or with
+<code>set_interval</code>.</p>
+<h2 id="displays-without-ticks">Displays without ticks</h2>
+<p>Only macOS 14 and later send display ticks. On other systems,
+<code>request_display_tick</code> returns false. The scheduler then uses
+only the interval. Set it from <code>display_refresh_rate</code>:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> refresh_interval<span class="op">(</span>magma<span class="op">::</span>platform <span class="at">const</span> <span class="op">&amp;</span>platform<span class="op">,</span> magma<span class="op">::</span>window_id window<span class="op">)</span> <span class="op">-&gt;</span> <span class="bu">std::</span>int64_t <span class="op">{</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> <span class="at">const</span> rate <span class="op">=</span> platform<span class="op">.</span>display_refresh_rate<span class="op">(</span>window<span class="op">).</span>value_or<span class="op">(</span><span class="fl">60.0</span><span class="bu">F</span><span class="op">);</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> <span class="kw">static_cast</span><span class="op">&lt;</span><span class="bu">std::</span>int64_t<span class="op">&gt;(</span><span class="bu">std::</span>llround<span class="op">(</span><span class="fl">1e9</span> <span class="op">/</span> rate<span class="op">));</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>A window can move to a display with a different rate. When a window
+event arrives and <code>follows_display</code> is false, set the
+interval again.</p>
+<h2 id="input-latency">Input latency</h2>
+<p>A frame for input waits for the previous frame to reach the screen.
+If it did not wait, the new frame would wait inside the GPU driver for
+the previous one.</p>
+<p>On Metal, <code>renderer::frame_in_flight</code> is true until the
+display shows the frame. On Vulkan and Direct3D 12, it is true until the
+frame goes to the window system. The raster backend is never in
+flight.</p>
+<p>With display sync on, Metal shows a frame about two refreshes after
+it starts. See <a href="#metal">Rendering</a> for the settings that
+change this, and <a href="#benchmarks">Benchmarks</a> for the measured
+latency.</p>
+<h1 id="rendering">Rendering</h1>
+<p>The <code>renderer</code> class draws Basalt paint commands and shows
+the result in a window. It keeps the last frame, so each frame draws
+only the damaged areas. It has one backend for the CPU and three for the
+GPU. The header is <code>magma/renderer.h</code>.</p>
+<h2 id="create-a-renderer">Create a renderer</h2>
+<p><code>renderer::create(platform, window, preference)</code> makes a
+renderer for one window. It reads the window’s size and display scale as
+the first metrics. The platform must outlive the renderer.</p>
+<p><code>renderer::create_offscreen(preference)</code> makes a renderer
+that draws into memory only. Use it for tests and tools. Call
+<code>set_metrics</code> before the first frame. The default preference
+for an offscreen renderer is <code>raster_only</code>, which gives the
+reference image.</p>
+<p>The preference selects the backends that the renderer can use:</p>
+<table>
+<colgroup>
+<col style="width: 62%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr>
+<th>Preference</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>automatic</code></td>
+<td>Use a GPU backend when one can start. Otherwise use
+<code>raster</code>.</td>
+</tr>
+<tr>
+<td><code>raster_only</code></td>
+<td>Never create a GPU device.</td>
+</tr>
+</tbody>
+</table>
+<p><code>active_backend</code> tells which backend the renderer
+uses.</p>
+<p>Create the window with
+<code>preferred_graphics_api(preference)</code>. This function gives the
+graphics API that the preference needs on the current system. A window
+with the wrong graphics API cannot use the GPU.</p>
+<h2 id="metrics">Metrics</h2>
+<p><code>set_metrics(viewport, scale)</code> sets the viewport in layout
+pixels and the display scale. The frame has
+<code>viewport * scale</code> device pixels. Call
+<code>set_metrics</code> at the start of each frame, with the values
+from the widget tree.</p>
+<p>A change of device size or scale discards the frame and requests a
+full redraw.</p>
+<h2 id="draw-a-frame">Draw a frame</h2>
+<p><code>render(commands, damage, clear)</code> draws one frame and
+shows it.</p>
+<ol type="1">
+<li>It clears each damaged area to the <code>clear</code> color.</li>
+<li>It draws the commands, clipped to the damaged areas.</li>
+<li>It shows the frame in the window.</li>
+</ol>
+<p>The <code>damage</code> rectangles are in layout pixels. Use the
+result of <code>widget_tree::take_damage</code>. Use the theme’s
+background color, such as <code>background_default</code>, as
+<code>clear</code>.</p>
+<p>If the damage is empty and no full redraw is pending,
+<code>render</code> shows nothing. It returns success.</p>
+<h2 id="full-redraw">Full redraw</h2>
+<p><code>needs_full_redraw</code> is true until the next frame that
+draws everything. While it is true, <code>render</code> ignores the
+damage and draws the whole viewport. Then the commands must cover the
+whole viewport.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> commands <span class="op">=</span> basalt<span class="op">::</span>paint_commands<span class="op">{};</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>renderer<span class="op">.</span>needs_full_redraw<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  basalt<span class="op">::</span>paint_tree<span class="op">(</span>tree<span class="op">,</span> commands<span class="op">);</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">auto</span> bounds <span class="op">=</span> damage<span class="op">.</span>front<span class="op">();</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> <span class="op">(</span><span class="kw">auto</span> <span class="at">const</span> <span class="op">&amp;</span>area <span class="op">:</span> damage<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    bounds <span class="op">=</span> basalt<span class="op">::</span>bounding_union<span class="op">(</span>bounds<span class="op">,</span> area<span class="op">);</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  basalt<span class="op">::</span>paint_tree<span class="op">(</span>tree<span class="op">,</span> commands<span class="op">,</span> bounds<span class="op">);</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When the damage is small, paint only the bounding box of the damage.
+Paint one box, not each rectangle separately. If you paint each
+rectangle separately, a parent’s background can cover what an earlier
+rectangle drew.</p>
+<p>Call <code>request_full_redraw</code> when the window shows again
+after it was hidden or covered. The system can discard the window’s
+pixels at these times.</p>
+<h2 id="backends">Backends</h2>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Device</th>
+<th>Systems</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>raster</code></td>
+<td>CPU, with Blend2D</td>
+<td>All</td>
+</tr>
+<tr>
+<td><code>metal</code></td>
+<td>GPU, with Metal</td>
+<td>macOS</td>
+</tr>
+<tr>
+<td><code>vulkan</code></td>
+<td>GPU, with Vulkan</td>
+<td>Linux and Windows</td>
+</tr>
+<tr>
+<td><code>d3d12</code></td>
+<td>GPU, with Direct3D 12</td>
+<td>Windows</td>
+</tr>
+</tbody>
+</table>
+<p>The raster backend is the reference. The golden images in the tests
+come from it. It draws large areas on up to four threads and small areas
+on one thread. It shows the frame with
+<code>platform::present_pixels</code>.</p>
+<p>The GPU backends share one design. Each draws every rectangle,
+rounded rectangle, stroke, line, glyph, and image as one instanced quad.
+The shader calculates the coverage of each pixel exactly. Glyphs come
+from an atlas that Blend2D fills, at quarter-pixel positions. A clip
+that is not aligned to the axes, and a layer with an opacity, draw into
+an offscreen texture.</p>
+<p>Each GPU backend keeps the frame in an image or texture. It redraws
+the damaged areas and copies the image into the window.</p>
+<p>Before each frame, all backends skip the commands that are outside
+the damaged areas.</p>
+<p>On Windows, <code>preferred_graphics_api</code> gives Direct3D 12
+when a Direct3D 12 adapter is available. If not, it gives Vulkan.</p>
+<h2 id="text">Text</h2>
+<p>All backends draw text from the glyph outlines that Basalt gives with
+<code>font_face::outline</code>. Thus variable fonts show their correct
+weight. The renderer does not need its own font engine.</p>
+<h2 id="metal">Metal</h2>
+<p>The Metal layer syncs to the display. The system shows a frame about
+two refreshes after it starts. Without display sync, key presses reach
+the screen sooner, but slow scrolling tears. Thus display sync is on by
+default.</p>
+<p>These environment variables change the Metal backend. Set them before
+you create the renderer.</p>
+<table>
+<colgroup>
+<col style="width: 57%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MAGMA_METAL_REDRAW=full</code></td>
+<td>Draw each frame from nothing into the window.
+<code>needs_full_redraw</code> is then always true, and
+<code>read_pixel</code> and <code>read_frame</code> return nothing for a
+window. The default is <code>retained</code>.</td>
+</tr>
+<tr>
+<td><code>MAGMA_METAL_VSYNC=0</code></td>
+<td>Turn display sync off.</td>
+</tr>
+<tr>
+<td><code>MAGMA_METAL_DRAWABLES</code></td>
+<td>The number of drawables, <code>2</code> or <code>3</code>. The
+default is 3.</td>
+</tr>
+</tbody>
+</table>
+<p>These settings are for measurement. <a href="#benchmarks">Benchmarks</a> gives the results of each one.</p>
+<p>The Metal backend compiles its shaders when it starts. The build does
+not need the Metal toolchain.</p>
+<h2 id="vulkan-and-direct3d-12">Vulkan and Direct3D 12</h2>
+<p>The Vulkan and Direct3D 12 backends wait for the display. Vulkan uses
+first-in first-out presentation, and Direct3D 12 uses
+<code>Present(1, 0)</code>. Neither can tell when a frame reaches the
+screen. They report the time when they gave the frame to the window
+system.</p>
+<p>The Vulkan backend loads the Vulkan library when it starts. The build
+needs no Vulkan SDK.</p>
+<p>A software device is slower than the raster backend. Thus the Vulkan
+backend refuses a CPU device, and the Direct3D 12 backend refuses WARP.
+These environment variables change this behavior, and turn on
+validation:</p>
+<table>
+<colgroup>
+<col style="width: 57%" />
+<col style="width: 42%" />
+</colgroup>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MAGMA_VULKAN_ALLOW_SOFTWARE=1</code></td>
+<td>Accept a CPU device, for example Mesa’s lavapipe.</td>
+</tr>
+<tr>
+<td><code>MAGMA_D3D12_ADAPTER=warp</code></td>
+<td>Use the WARP software adapter.</td>
+</tr>
+<tr>
+<td><code>MAGMA_VULKAN_VALIDATION=1</code></td>
+<td>Load the Khronos validation layer, if it is installed.</td>
+</tr>
+<tr>
+<td><code>MAGMA_D3D12_VALIDATION=1</code></td>
+<td>Turn on the Direct3D 12 debug layer.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="read-pixels">Read pixels</h2>
+<p><code>read_pixel(x, y)</code> gives the color of one device pixel in
+the last frame. <code>read_frame</code> gives a copy of the whole frame
+as a <code>basalt::raster_image_ptr</code>. Both return nothing before
+the first frame.</p>
+<p>Use these functions with an offscreen renderer in tests. This example
+draws one rectangle and checks a pixel:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> renderer <span class="op">=</span> magma<span class="op">::</span>renderer<span class="op">::</span>create_offscreen<span class="op">();</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>renderer<span class="op">.</span>set_metrics<span class="op">({</span><span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">},</span> <span class="fl">1.0</span><span class="bu">F</span><span class="op">);</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="at">const</span> commands <span class="op">=</span> basalt<span class="op">::</span>paint_commands<span class="op">{</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    basalt<span class="op">::</span>fill_rect_command<span class="op">{{{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">10</span><span class="op">},</span> <span class="op">{</span><span class="dv">20</span><span class="op">,</span> <span class="dv">20</span><span class="op">}},</span> basalt<span class="op">::</span>rgba<span class="op">{</span><span class="dv">240</span><span class="op">,</span> <span class="dv">88</span><span class="op">,</span> <span class="dv">11</span><span class="op">,</span> <span class="dv">255</span><span class="op">}}};</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="at">const</span> whole <span class="op">=</span> basalt<span class="op">::</span>rect<span class="op">{{</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">},</span> <span class="op">{</span><span class="dv">100</span><span class="op">,</span> <span class="dv">100</span><span class="op">}};</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(!</span>renderer<span class="op">.</span>render<span class="op">(</span>commands<span class="op">,</span> <span class="op">{&amp;</span>whole<span class="op">,</span> <span class="dv">1</span><span class="op">},</span> basalt<span class="op">::</span>rgba<span class="op">{</span><span class="dv">255</span><span class="op">,</span> <span class="dv">255</span><span class="op">,</span> <span class="dv">255</span><span class="op">,</span> <span class="dv">255</span><span class="op">}))</span> <span class="op">{</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> EXIT_FAILURE<span class="op">;</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="at">const</span> pixel <span class="op">=</span> renderer<span class="op">.</span>read_pixel<span class="op">(</span><span class="dv">15</span><span class="op">,</span> <span class="dv">15</span><span class="op">);</span></span></code></pre></div>
+<h2 id="frame-statistics">Frame statistics</h2>
+<p>The renderer can record when each frame reaches the screen.</p>
+<ul>
+<li><code>track_presentations(true)</code> starts the record. It is off
+by default.</li>
+<li><code>last_frame</code> gives the number of the last frame that
+<code>render</code> showed, from 1.</li>
+<li><code>take_presentations</code> gives the records since the last
+call. Each <code>presentation</code> has a frame number and a time on
+the platform’s event clock. The time is empty when a later frame
+replaced the frame before the display showed it.</li>
+<li><code>frame_in_flight</code> is true while the last frame has not
+reached the screen. Use it to call
+<code>frame_scheduler::frame_shown</code>.</li>
+</ul>
+<p>The meaning of the time depends on the backend. Metal reports when
+the display showed the frame. The other backends report when they gave
+the frame to the window system.</p>
+<h1 id="benchmarks">Benchmarks</h1>
+<p>This file records how fast Magma draws in a real application, and the
+decisions that the numbers support. The numbers come from med, the MEPSA
+editor, which can draw with its own Skia renderer or with Magma’s
+renderer. The latest results show that Magma’s Metal backend is as fast
+as Skia or faster on every measurement. Display pacing removed most
+missed frames while scrolling. Keystrokes reach the screen within one
+refresh only when display sync is off, but then slow scrolling tears, so
+display sync stays on by default.</p>
+<h2 id="method">Method</h2>
+<ul>
+<li>Computer: MacBook Pro, M2 Max. The window was on a display that
+reports 60 Hz.</li>
+<li>Program: med in a release build, window size 1180x780 at scale 2,
+with the article <code>test2.mepsa</code>.</li>
+<li>Command:
+<code>just bench-frames 3 test2.mepsa --renderer &lt;skia|magma&gt;</code>
+in med. Environment variables select Magma’s Metal settings. Each value
+in the tables is the median of three runs.</li>
+<li>Scripts: <code>scroll</code> scrolls at a constant rate,
+<code>fling</code> sends trackpad flings, and <code>type</code> types a
+paragraph at 80 ms for each key.</li>
+<li>A missed refresh is a gap between two presented frames that is
+longer than one refresh interval, while the script runs. Gaps longer
+than four intervals are pauses in the script and do not count.</li>
+<li>Key latency is the time from the key event to the time the display
+showed the frame with the key. With display sync on, Metal reports the
+time the display showed the frame. The CPU backends report the time they
+gave the frame to the window system, so their latency is too low by up
+to one refresh, and their missed refreshes are not visible.</li>
+</ul>
+<h2 id="results">Results</h2>
+<p>Magma at version 0.3.0, with display pacing. Times are in
+milliseconds. The rows that say “display sync off” set
+<code>MAGMA_METAL_VSYNC=0</code>.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+<col style="width: 14%" />
+</colgroup>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Startup</th>
+<th>Scroll misses</th>
+<th>Fling misses</th>
+<th>Scroll draw p50 / p99</th>
+<th>Key latency p50 / p99</th>
+<th>Keys within one refresh</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skia on Metal</td>
+<td>351</td>
+<td>3</td>
+<td>3</td>
+<td>0.84 / 4.48</td>
+<td>32.0 / 42.0</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Magma Metal, retained frame</td>
+<td>305</td>
+<td>1</td>
+<td>1</td>
+<td>0.62 / 13.29</td>
+<td>31.4 / 41.4</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Magma Metal, full redraw</td>
+<td>300</td>
+<td>4</td>
+<td>2</td>
+<td>0.48 / 1.65</td>
+<td>32.3 / 39.0</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>Magma Metal, display sync off</td>
+<td>332</td>
+<td>2</td>
+<td>3</td>
+<td>0.52 / 1.89</td>
+<td>8.4 / 21.1</td>
+<td>97%</td>
+</tr>
+<tr>
+<td>Magma Metal, full redraw, display sync off</td>
+<td>322</td>
+<td>3</td>
+<td>3</td>
+<td>0.42 / 1.72</td>
+<td>9.2 / 12.6</td>
+<td>99%</td>
+</tr>
+<tr>
+<td>Skia on the CPU</td>
+<td>284</td>
+<td>0</td>
+<td>0</td>
+<td>8.31 / 9.42</td>
+<td>18.5 / 22.3</td>
+<td>28%</td>
+</tr>
+<tr>
+<td>Magma on the CPU</td>
+<td>270</td>
+<td>0</td>
+<td>0</td>
+<td>3.87 / 9.63</td>
+<td>14.2 / 19.3</td>
+<td>87%</td>
+</tr>
+</tbody>
+</table>
+<p>The baseline before Magma’s display pacing was Skia on Metal with a
+60 Hz timer. It missed 11 or 12 refreshes in each scroll run, and its
+median key latency was about 31 ms.</p>
+<h2 id="decisions">Decisions</h2>
+<ul>
+<li>Damage strategy: the retained frame stays the default. It missed
+fewer refreshes while scrolling than the full redraw, and its key
+latency is the same. <code>MAGMA_METAL_REDRAW=full</code> stays
+available until the external display is measured.</li>
+<li>Display pacing: frames follow the display link. Scroll misses fell
+from about 11 to 1 for Magma and to 3 for Skia.</li>
+<li>Display sync: with sync on, a frame reaches the screen about two
+refreshes after it starts. This is the system compositor, not the
+renderer. Only sync off meets the typing target, but with it slow
+scrolling in med tears in a window, in waves across the text. Sync stays
+on by default. <code>MAGMA_METAL_VSYNC=0</code> turns it off.</li>
+<li>Drawable count: two drawables gave no clear change in one run, so
+the default of three stays.</li>
+</ul>
+<h2 id="open-measurements">Open Measurements</h2>
+<ul>
+<li>The 120 Hz built-in display and the external display, each with the
+window on it.</li>
+<li>A way to meet the typing target with display sync on, for example by
+starting the frame for a keystroke later in the refresh, or by
+presenting it at a set time.</li>
+<li>Key latency includes med’s own work for each key, which grows from
+about 0.1 ms to about 4 ms as the typed paragraph gets longer.</li>
+</ul>
+</body>
+</html>
