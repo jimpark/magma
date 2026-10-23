@@ -35,9 +35,8 @@ namespace {
 
 // Frames the CPU may record before the GPU has finished the oldest of them.
 constexpr auto frames_in_flight = std::size_t{3};
-// Images are not evicted one at a time. A cache this large means the caller has moved on through
-// many images, so starting over is cheaper than tracking use.
-constexpr auto image_cache_limit = std::size_t{64};
+// The texture memory that images may hold between frames. See `image_cache`.
+constexpr auto image_cache_budget = std::size_t{256} * 1024 * 1024;
 constexpr auto smallest_instance_buffer = std::size_t{64} * 1024;
 constexpr auto smallest_staging_buffer = std::size_t{1024} * 1024;
 constexpr auto texture_sets_per_pool = std::uint32_t{64};
@@ -1689,7 +1688,7 @@ private:
   gpu_scene_builder builder_;
   // By atlas page index: the page's id and its image.
   std::vector<std::pair<std::uint64_t, std::shared_ptr<gpu_image>>> page_images_;
-  image_cache<std::shared_ptr<gpu_image>> images_{image_cache_limit};
+  image_cache<std::shared_ptr<gpu_image>> images_{image_cache_budget};
   // By scene layer index.
   std::vector<std::shared_ptr<gpu_image>> layers_;
 };

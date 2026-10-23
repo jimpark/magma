@@ -8,7 +8,9 @@
 
 #include <exception>
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -68,6 +70,28 @@ struct platform::impl {
 };
 
 namespace detail {
+
+// What a file or folder dialog needs until SDL calls back. SDL owns the state between the
+// call that shows the dialog and `on_dialog`.
+struct dialog_state {
+  platform::file_dialog_callback callback;
+  std::string default_location;
+  std::vector<std::string> names;
+  std::vector<std::string> patterns;
+  std::vector<SDL_DialogFileFilter> filters;
+  std::shared_ptr<std::vector<std::exception_ptr>> callback_errors;
+};
+
+[[nodiscard]] auto
+make_dialog_state(std::span<file_filter const> filters, platform::file_dialog_callback callback,
+                  std::string_view default_location,
+                  std::shared_ptr<std::vector<std::exception_ptr>> callback_errors)
+    -> std::unique_ptr<dialog_state>;
+// SDL's dialog callback. It takes ownership of `userdata`, which is a `dialog_state` that
+// `make_dialog_state` made and the caller released. A null `filelist` means the user
+// cancelled and an empty one means that nothing was chosen. An exception from the callback is
+// kept in `callback_errors` for `poll_events` to rethrow, because SDL may call from another thread.
+auto on_dialog(void *userdata, char const *const *filelist, int filter) -> void;
 
 // Pushes an event that ends `platform::wait_for_events`. Safe on any thread.
 inline auto push_wake_event() -> void {

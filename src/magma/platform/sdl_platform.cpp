@@ -197,27 +197,6 @@ auto dialog_filters(std::span<file_filter const> filters, std::vector<std::strin
   return result;
 }
 
-struct dialog_state {
-  platform::file_dialog_callback callback;
-  std::string default_location;
-  std::vector<std::string> names;
-  std::vector<std::string> patterns;
-  std::vector<SDL_DialogFileFilter> filters;
-  std::shared_ptr<std::vector<std::exception_ptr>> callback_errors;
-};
-
-auto make_dialog_state(std::span<file_filter const> filters,
-                       platform::file_dialog_callback callback, std::string_view default_location,
-                       std::shared_ptr<std::vector<std::exception_ptr>> callback_errors)
-    -> std::unique_ptr<dialog_state> {
-  auto state = std::make_unique<dialog_state>();
-  state->callback = std::move(callback);
-  state->default_location = default_location;
-  state->filters = dialog_filters(filters, state->names, state->patterns);
-  state->callback_errors = std::move(callback_errors);
-  return state;
-}
-
 auto pointer_position(float x, float y) -> basalt::point { return {x, y}; }
 
 auto append_window_event(std::vector<platform_event> &result, SDL_WindowID id,
@@ -237,22 +216,6 @@ auto append_window_event(std::vector<platform_event> &result, SDL_WindowID id,
   result.push_back({id, value});
 }
 
-auto on_dialog(void *userdata, char const *const *filelist, int) -> void {
-  auto state = std::unique_ptr<dialog_state>{static_cast<dialog_state *>(userdata)};
-  std::optional<std::vector<std::string>> paths;
-  if (filelist != nullptr) {
-    paths.emplace();
-    for (auto index = std::size_t{0}; filelist[index] != nullptr; ++index) {
-      paths->emplace_back(filelist[index]);
-    }
-  }
-  try {
-    state->callback(paths);
-  } catch (...) {
-    state->callback_errors->push_back(std::current_exception());
-  }
-}
-
 auto on_live_resize(void *userdata, SDL_Event *event) -> bool {
   if ((event->type != SDL_EVENT_WINDOW_RESIZED &&
        event->type != SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) ||
@@ -270,6 +233,38 @@ auto on_live_resize(void *userdata, SDL_Event *event) -> bool {
 }
 
 } // namespace
+
+namespace detail {
+
+auto make_dialog_state(std::span<file_filter const> filters,
+                       platform::file_dialog_callback callback, std::string_view default_location,
+                       std::shared_ptr<std::vector<std::exception_ptr>> callback_errors)
+    -> std::unique_ptr<dialog_state> {
+  auto state = std::make_unique<dialog_state>();
+  state->callback = std::move(callback);
+  state->default_location = default_location;
+  state->filters = dialog_filters(filters, state->names, state->patterns);
+  state->callback_errors = std::move(callback_errors);
+  return state;
+}
+
+auto on_dialog(void *userdata, char const *const *filelist, int) -> void {
+  auto state = std::unique_ptr<dialog_state>{static_cast<dialog_state *>(userdata)};
+  std::optional<std::vector<std::string>> paths;
+  if (filelist != nullptr) {
+    paths.emplace();
+    for (auto index = std::size_t{0}; filelist[index] != nullptr; ++index) {
+      paths->emplace_back(filelist[index]);
+    }
+  }
+  try {
+    state->callback(paths);
+  } catch (...) {
+    state->callback_errors->push_back(std::current_exception());
+  }
+}
+
+} // namespace detail
 
 platform::platform(std::unique_ptr<impl> implementation) : impl_(std::move(implementation)) {}
 platform::platform(platform &&) noexcept = default;
@@ -590,13 +585,25 @@ auto platform::set_cursor(cursor_shape shape) -> std::expected<void, platform_er
 auto platform::show_open_file_dialog(window_id window, std::span<file_filter const> filters,
                                      file_dialog_callback callback, bool allow_many,
                                      std::string_view default_location) -> void {
-  auto state = make_dialog_state(filters, std::move(callback), default_location,
-                                 impl_->dialog_callback_errors);
+  auto state = detail::make_dialog_state(filters, std::move(callback), default_location,
+                                         impl_->dialog_callback_errors);
   auto *const parent = detail::window_for(window);
   auto *const state_pointer = state.release();
   SDL_ShowOpenFileDialog(
-      on_dialog, state_pointer, parent, state_pointer->filters.data(),
+      detail::on_dialog, state_pointer, parent, state_pointer->filters.data(),
       static_cast<int>(state_pointer->filters.size()),
+      state_pointer->default_location.empty() ? nullptr : state_pointer->default_location.c_str(),
+      allow_many);
+}
+
+auto platform::show_open_folder_dialog(window_id window, file_dialog_callback callback,
+                                       bool allow_many, std::string_view default_location) -> void {
+  auto state = detail::make_dialog_state({}, std::move(callback), default_location,
+                                         impl_->dialog_callback_errors);
+  auto *const parent = detail::window_for(window);
+  auto *const state_pointer = state.release();
+  SDL_ShowOpenFolderDialog(
+      detail::on_dialog, state_pointer, parent,
       state_pointer->default_location.empty() ? nullptr : state_pointer->default_location.c_str(),
       allow_many);
 }
@@ -604,12 +611,12 @@ auto platform::show_open_file_dialog(window_id window, std::span<file_filter con
 auto platform::show_save_file_dialog(window_id window, std::span<file_filter const> filters,
                                      file_dialog_callback callback,
                                      std::string_view default_location) -> void {
-  auto state = make_dialog_state(filters, std::move(callback), default_location,
-                                 impl_->dialog_callback_errors);
+  auto state = detail::make_dialog_state(filters, std::move(callback), default_location,
+                                         impl_->dialog_callback_errors);
   auto *const parent = detail::window_for(window);
   auto *const state_pointer = state.release();
   SDL_ShowSaveFileDialog(
-      on_dialog, state_pointer, parent, state_pointer->filters.data(),
+      detail::on_dialog, state_pointer, parent, state_pointer->filters.data(),
       static_cast<int>(state_pointer->filters.size()),
       state_pointer->default_location.empty() ? nullptr : state_pointer->default_location.c_str());
 }

@@ -3,6 +3,7 @@
 #include "basalt/event.h"
 
 #include "magma/platform.h"
+#include "magma/platform/sdl_platform_internal.h"
 
 #include <SDL3/SDL.h>
 
@@ -11,8 +12,11 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
+#include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -173,6 +177,24 @@ TEST_CASE("events carry the window they belong to, and quit uses window 0", "[pl
   CHECK(events[1].window == 0);
   CHECK(std::get<basalt::window_event>(events[1].event).action ==
         basalt::window_action::close_requested);
+}
+
+TEST_CASE("a close request reaches the application and leaves the window open",
+          "[platform][events]") {
+  auto platform = make_platform();
+  auto const window = make_window(platform, {100, 100});
+
+  auto close = SDL_Event{};
+  close.window.type = SDL_EVENT_WINDOW_CLOSE_REQUESTED;
+  close.window.windowID = window;
+  push(close);
+
+  auto const events = platform.poll_events();
+  REQUIRE(events.size() == 1);
+  CHECK(events[0].window == window);
+  CHECK(std::get<basalt::window_event>(events[0].event).action ==
+        basalt::window_action::close_requested);
+  CHECK(platform.window_size(window).has_value());
 }
 
 TEST_CASE("a live resize callback sees each resize and can be removed", "[platform][events]") {
@@ -382,4 +404,63 @@ TEST_CASE("display ticks need a window on a display the platform can follow", "[
   auto const window = make_window(platform, {40, 30});
   CHECK_FALSE(platform.request_display_tick(window));
   CHECK_FALSE(platform.take_display_tick(window).has_value());
+}
+
+// A real dialog needs a person to answer it, so these tests give the dialog callback the lists that
+// SDL gives it. Folder, file and save dialogs share this path.
+TEST_CASE("a dialog callback receives the chosen paths", "[platform][dialog]") {
+  auto received = std::optional<std::vector<std::string>>{};
+  auto called = 0;
+  auto errors = std::make_shared<std::vector<std::exception_ptr>>();
+  auto state = magma::detail::make_dialog_state(
+      {},
+      [&](std::optional<std::vector<std::string>> paths) {
+        received = std::move(paths);
+        ++called;
+      },
+      {}, errors);
+  auto const chosen = std::array<char const *, 3>{"/photos/2024", "/photos/2025", nullptr};
+  magma::detail::on_dialog(state.release(), chosen.data(), 0);
+  REQUIRE(called == 1);
+  REQUIRE(received.has_value());
+  CHECK(*received == std::vector<std::string>{"/photos/2024", "/photos/2025"});
+  CHECK(errors->empty());
+}
+
+TEST_CASE("a cancelled dialog gives the callback no paths", "[platform][dialog]") {
+  auto called = 0;
+  auto received = std::optional<std::vector<std::string>>{std::vector<std::string>{"stale"}};
+  auto state = magma::detail::make_dialog_state(
+      {},
+      [&](std::optional<std::vector<std::string>> paths) {
+        received = std::move(paths);
+        ++called;
+      },
+      {}, std::make_shared<std::vector<std::exception_ptr>>());
+  magma::detail::on_dialog(state.release(), nullptr, 0);
+  CHECK(called == 1);
+  CHECK_FALSE(received.has_value());
+}
+
+TEST_CASE("an exception from a dialog callback is kept for poll_events", "[platform][dialog]") {
+  auto errors = std::make_shared<std::vector<std::exception_ptr>>();
+  auto state = magma::detail::make_dialog_state(
+      {}, [](std::optional<std::vector<std::string>>) { throw std::runtime_error("handler"); }, {},
+      errors);
+  auto const chosen = std::array<char const *, 2>{"/photos", nullptr};
+  REQUIRE_NOTHROW(magma::detail::on_dialog(state.release(), chosen.data(), 0));
+  REQUIRE(errors->size() == 1);
+  CHECK_THROWS_AS(std::rethrow_exception(errors->front()), std::runtime_error);
+}
+
+TEST_CASE("a dialog keeps its starting folder and filters until SDL calls back",
+          "[platform][dialog]") {
+  auto const filters = std::array{magma::file_filter{"Images", "jpg;png"}};
+  auto state = magma::detail::make_dialog_state(
+      filters, [](std::optional<std::vector<std::string>>) {}, "/photos",
+      std::make_shared<std::vector<std::exception_ptr>>());
+  REQUIRE(state->filters.size() == 1);
+  CHECK(std::string{state->filters[0].name} == "Images");
+  CHECK(std::string{state->filters[0].pattern} == "jpg;png");
+  CHECK(state->default_location == "/photos");
 }

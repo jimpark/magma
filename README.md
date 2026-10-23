@@ -12,8 +12,11 @@ frame, and turns the paint commands into pixels.
 ## Contents
 
 - **Platform** (`magma/platform.h`): windows, input events as `basalt::event` (including files
-  dragged onto a window), the clipboard, cursors, file dialogs and text input for input methods. A window that uses software rendering
-  shows pixels with `present_pixels`.
+  dragged onto a window), the clipboard, cursors, file and folder dialogs and text input for input
+  methods. A window that uses software rendering shows pixels with `present_pixels`. A request to
+  quit the application, and a request to close one window, arrive as `close_requested` events.
+  Magma does not act on them, so the application can finish its work first and then destroy the
+  window.
 - **Frame scheduler** (`magma/frame_scheduler.h`): decides when the next frame can start. It has no
   clock of its own. The caller gives it the time, so the same rules apply in an event loop and in
   tests. It starts frames at the display's refreshes, and it starts a frame for input at once when
@@ -47,6 +50,12 @@ The `vulkan` and `d3d12` backends use the same scene, glyph atlas and quad shade
 Each has its own shader: GLSL that is compiled to SPIR-V at build time for Vulkan, and HLSL that is
 compiled when the backend starts for Direct3D 12. Each keeps the frame in an image, redraws the
 damaged areas and copies the image into the window.
+
+The GPU backends keep one texture for each image that a frame draws, so an image that is drawn every
+frame is copied to the GPU once. The textures of all images together may use about 256 MiB between
+frames. When a frame needs more room, the backend releases the textures that were used longest ago.
+A frame never releases a texture that it samples. An application can scroll through thousands of
+images and the textures stay within the budget.
 
 Blend2D is a private dependency, and so are the graphics APIs. Create the window with the graphics API that `preferred_graphics_api` gives, so that the renderer
 can use the GPU. With `backend_preference::automatic`, the renderer uses the GPU when it can, and

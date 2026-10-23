@@ -22,6 +22,7 @@
 #include "backend.h"
 #include "glyph_atlas.h"
 #include "gpu_scene.h"
+#include "image_cache.h"
 #include "pixels.h"
 #include "scene_walk.h"
 
@@ -34,9 +35,8 @@ namespace {
 
 // Frames the CPU may encode before the GPU has finished the oldest of them.
 constexpr auto frames_in_flight = std::size_t{3};
-// Images are not evicted one at a time. A cache this large means the caller has moved on through
-// many images, so starting over is cheaper than tracking use.
-constexpr auto image_cache_limit = std::size_t{64};
+// The texture memory that images may hold between frames. See `image_cache`.
+constexpr auto image_cache_budget = std::size_t{256} * 1024 * 1024;
 constexpr auto smallest_instance_buffer = std::size_t{64} * 1024;
 
 // One shader draws every instance kind. See `gpu_instance` in gpu_scene.h for the layout.
@@ -503,21 +503,18 @@ private:
     atlas_.clear_dirty();
   }
 
-  // The textures of the scene's images, in scene order. Each image is copied to the GPU once.
+  // The textures of the scene's images, in scene order. Each image is copied to the GPU once, and
+  // the copies of images that stop being drawn are released.
   auto upload_images(gpu_scene const &scene) -> std::vector<id<MTLTexture>> {
-    if (images_.size() + scene.images.size() > image_cache_limit) {
-      images_.clear();
-    }
-    auto textures = std::vector<id<MTLTexture>>{};
-    textures.reserve(scene.images.size());
-    for (auto const *const image : scene.images) {
-      auto &texture = images_[image->id()];
-      if (texture == nil) {
-        texture = upload_image(*image);
-      }
-      textures.push_back(texture != nil ? texture : empty_texture_);
-    }
-    return textures;
+    auto textures = images_.textures_for(
+        scene.images,
+        [this](basalt::raster_image const &image) -> std::expected<id<MTLTexture>, render_error> {
+          auto const texture = upload_image(image);
+          return texture != nil ? texture : empty_texture_;
+        },
+        // ARC frees a texture once the command buffers that sample it have finished.
+        [](id<MTLTexture>) {});
+    return std::move(*textures);
   }
 
   [[nodiscard]] auto upload_image(basalt::raster_image const &image) const -> id<MTLTexture> {
@@ -737,7 +734,7 @@ private:
   gpu_scene_builder builder_;
   // By atlas page index: the page's id and its texture.
   std::vector<std::pair<std::uint64_t, id<MTLTexture>>> page_textures_;
-  std::unordered_map<std::uint64_t, id<MTLTexture>> images_;
+  image_cache<id<MTLTexture>> images_{image_cache_budget};
   // By scene layer index.
   std::vector<id<MTLTexture>> layer_textures_;
   presented_handler pending_presentation_;

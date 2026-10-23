@@ -138,6 +138,11 @@ public:
   auto show_open_file_dialog(window_id window, std::span<file_filter const> filters,
                              file_dialog_callback callback, bool allow_many = false,
                              std::string_view default_location = {}) -> void;
+  // Lets the user choose a folder. The callback gets the folders chosen, or nothing when the user
+  // cancels. `allow_many` allows more than one folder where the system supports it.
+  auto show_open_folder_dialog(window_id window, file_dialog_callback callback,
+                               bool allow_many = false, std::string_view default_location = {})
+      -> void;
   auto show_save_file_dialog(window_id window, std::span<file_filter const> filters,
                              file_dialog_callback callback, std::string_view default_location = {})
       -> void;
