@@ -3,6 +3,7 @@ add_executable(magma_tests
   magma/golden.cpp
   magma/golden.h
   magma/gpu_scene_test.cpp
+  magma/image_cache_test.cpp
   magma/platform_test.cpp
   magma/render_golden_test.cpp
   magma/renderer_test.cpp)
