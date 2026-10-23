@@ -7,8 +7,8 @@ frame, and turns the paint commands into pixels.
 
 ## Contents
 
-- **Platform** (`magma/platform.h`): windows, input events as `basalt::event`, the clipboard,
-  cursors, file dialogs and text input for input methods. A window that uses software rendering
+- **Platform** (`magma/platform.h`): windows, input events as `basalt::event` (including files
+  dragged onto a window), the clipboard, cursors, file dialogs and text input for input methods. A window that uses software rendering
   shows pixels with `present_pixels`.
 - **Frame scheduler** (`magma/frame_scheduler.h`): decides when the next frame can start. It has no
   clock of its own. The caller gives it the time, so the same rules apply in an event loop and in

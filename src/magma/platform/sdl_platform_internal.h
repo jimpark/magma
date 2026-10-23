@@ -8,6 +8,7 @@
 
 #include <exception>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
@@ -51,6 +52,13 @@ struct platform::impl {
     gl_contexts.clear();
   }
   std::unordered_map<cursor_shape, sdl_cursor_handle> cursors;
+  // Files dragged over a window. SDL reports the paths one event at a time and gives a drag that
+  // left the window no paths, so they are collected until the drag completes.
+  struct file_drag {
+    bool entered = false;
+    std::vector<std::string> paths;
+  };
+  std::unordered_map<window_id, file_drag> file_drags;
   live_resize_callback live_resize;
   bool live_resize_watching = false;
   // Kept between frames so that presenting does not allocate.
