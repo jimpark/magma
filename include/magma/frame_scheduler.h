@@ -10,7 +10,10 @@ namespace magma {
 // monotonic time in nanoseconds, so the same rules apply to the event loop and
 // to tests. Frame requests coalesce.
 //
-// Until the first `display_refreshed`, frames start at least `interval` apart.
+// Until the first `display_refreshed`, frames start `interval` apart. The interval counts from
+// the time a frame was due, not the time it began, so an event loop that wakes a little late does
+// not slow every later frame by that delay. A frame that begins an interval or more after it was
+// due counts from the time it began.
 // After it, a frame starts at the first display refresh after the previous
 // frame began, so each refresh gets at most one frame. When the previous frame
 // is shown and began at least `interval` ago, the frame starts at once, so the
@@ -99,13 +102,22 @@ public:
   // Marks the pending frame as started. A request made while the frame is being
   // produced schedules another frame.
   auto begin_frame(nanoseconds now) noexcept -> void {
+    last_start_ = start_time(now);
     pending_ = false;
     input_ = false;
     shown_ = false;
-    last_start_ = now;
   }
 
 private:
+  // The time a frame that begins at `now` counts as started.
+  [[nodiscard]] auto start_time(nanoseconds now) const noexcept -> nanoseconds {
+    if (!pending_ || !last_start_ || last_refresh_ || (input_ && shown_)) {
+      return now;
+    }
+    auto const due = *last_start_ + interval_;
+    return now >= due && now - due < interval_ ? due : now;
+  }
+
   nanoseconds interval_;
   std::optional<nanoseconds> last_start_;
   std::optional<nanoseconds> last_refresh_;
