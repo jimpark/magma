@@ -32,6 +32,31 @@ TEST_CASE("frame scheduler spaces frames by the interval", "[scheduler]") {
   CHECK(scheduler.wait_timeout(1'500) == 0);
 }
 
+TEST_CASE("frame scheduler does not add a late start to the next interval", "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.request_frame();
+  scheduler.begin_frame(1'000);
+  for (auto const due : {1'100, 1'200, 1'300}) {
+    scheduler.request_frame();
+    CHECK(scheduler.next_frame_time() == due);
+    // The event loop wakes 3 ns after the frame was due.
+    scheduler.begin_frame(due + 3);
+  }
+  scheduler.request_frame();
+  CHECK(scheduler.next_frame_time() == 1'400);
+}
+
+TEST_CASE("frame scheduler counts from the start of a frame that began an interval late",
+          "[scheduler]") {
+  auto scheduler = frame_scheduler{100};
+  scheduler.request_frame();
+  scheduler.begin_frame(1'000);
+  scheduler.request_frame();
+  scheduler.begin_frame(1'250);
+  scheduler.request_frame();
+  CHECK(scheduler.next_frame_time() == 1'350);
+}
+
 TEST_CASE("frame scheduler coalesces repeated requests", "[scheduler]") {
   auto scheduler = frame_scheduler{100};
   scheduler.request_frame();
