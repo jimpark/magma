@@ -1053,13 +1053,15 @@ private:
   }
 
   // Space for pixels that the next copy commands read. The old buffer stays until the frame that
-  // is being recorded has finished.
+  // is being recorded has finished. A new buffer has room for twice what the frame has used so
+  // far, so a frame that uploads many images replaces its buffer a few times, not once for each
+  // image.
   auto reserve_staging(frame_slot &slot, std::size_t bytes)
       -> std::expected<std::pair<std::size_t, std::byte *>, render_error> {
     constexpr auto alignment = std::size_t{16};
     auto const offset = (slot.staging_used + alignment - 1) / alignment * alignment;
     if (!slot.staging.buffer || offset + bytes > slot.staging.size) {
-      auto bigger = create_buffer(std::max(bytes * 2, smallest_staging_buffer),
+      auto bigger = create_buffer(std::max((offset + bytes) * 2, smallest_staging_buffer),
                                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
       if (!bigger) {
         return std::unexpected(std::move(bigger.error()));
@@ -1159,12 +1161,12 @@ private:
     if (!created) {
       return std::unexpected(std::move(created.error()));
     }
-    auto const texels = premultiplied_rgba(source.pixels());
-    auto staged = reserve_staging(slot, texels.size());
+    auto const &pixels = source.pixels();
+    auto staged = reserve_staging(slot, pixels.size());
     if (!staged) {
       return std::unexpected(std::move(staged.error()));
     }
-    std::memcpy(staged->second, texels.data(), texels.size());
+    write_premultiplied_rgba(pixels, staged->second);
     copy_to_image(commands, slot.staging.buffer.get(), staged->first, **created, 0, 0, width,
                   height, width);
     return std::move(*created);

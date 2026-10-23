@@ -9,6 +9,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <utility>
 #include <vector>
@@ -52,18 +53,40 @@ namespace magma::render {
           static_cast<float>(color.b) / 255 * alpha, alpha};
 }
 
+// True when every pixel of the straight-alpha RGBA8 `pixels` has alpha 255. The loop has no early
+// exit so that the compiler can vectorize it; it costs much less than premultiplying.
+[[nodiscard]] inline auto is_opaque_rgba(std::span<std::uint8_t const> pixels) -> bool {
+  auto alpha = std::uint8_t{255};
+  for (auto offset = std::size_t{3}; offset < pixels.size(); offset += 4) {
+    alpha &= pixels[offset];
+  }
+  return alpha == 255;
+}
+
+// Writes straight-alpha RGBA8 `pixels` to `out` with each color channel multiplied by alpha. `out`
+// holds at least `pixels.size()` bytes, for example mapped staging memory. Opaque pixels do not
+// change, so an opaque image is copied as it is.
+inline auto write_premultiplied_rgba(std::span<std::uint8_t const> pixels, std::byte *out) -> void {
+  if (is_opaque_rgba(pixels)) {
+    std::memcpy(out, pixels.data(), pixels.size());
+    return;
+  }
+  auto *const bytes = reinterpret_cast<std::uint8_t *>(out);
+  for (auto offset = std::size_t{0}; offset + 3 < pixels.size(); offset += 4) {
+    auto const alpha = std::uint32_t{pixels[offset + 3]};
+    for (auto channel = std::size_t{0}; channel < 3; ++channel) {
+      bytes[offset + channel] =
+          static_cast<std::uint8_t>((std::uint32_t{pixels[offset + channel]} * alpha + 127) / 255);
+    }
+    bytes[offset + 3] = pixels[offset + 3];
+  }
+}
+
 // A copy of straight-alpha RGBA8 pixels with each color channel multiplied by alpha.
 [[nodiscard]] inline auto premultiplied_rgba(std::span<std::uint8_t const> pixels)
     -> std::vector<std::uint8_t> {
   auto result = std::vector<std::uint8_t>(pixels.size());
-  for (auto offset = std::size_t{0}; offset + 3 < pixels.size(); offset += 4) {
-    auto const alpha = std::uint32_t{pixels[offset + 3]};
-    for (auto channel = std::size_t{0}; channel < 3; ++channel) {
-      result[offset + channel] =
-          static_cast<std::uint8_t>((std::uint32_t{pixels[offset + channel]} * alpha + 127) / 255);
-    }
-    result[offset + 3] = pixels[offset + 3];
-  }
+  write_premultiplied_rgba(pixels, reinterpret_cast<std::byte *>(result.data()));
   return result;
 }
 
