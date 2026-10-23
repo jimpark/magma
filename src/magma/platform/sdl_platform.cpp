@@ -442,8 +442,10 @@ auto platform::poll_events() -> std::vector<platform_event> {
       auto value = basalt::wheel_event{};
       auto const direction = event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.0f : 1.0f;
       value.position = pointer_position(event.wheel.mouse_x, event.wheel.mouse_y);
+      // SDL's y is positive when the wheel turns away from the user; Basalt's is positive when
+      // the content moves up to show what is below. The x axes agree.
       value.delta = {event.wheel.x * direction * wheel_notch_layout_pixels,
-                     event.wheel.y * direction * wheel_notch_layout_pixels};
+                     -event.wheel.y * direction * wheel_notch_layout_pixels};
       value.modifiers = modifiers(SDL_GetModState());
       value.precise = true;
       value.time = timestamp;
