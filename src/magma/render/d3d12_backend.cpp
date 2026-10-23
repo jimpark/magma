@@ -581,13 +581,15 @@ private:
   }
 
   // Space for pixels that the next copy commands read. The old buffer stays until the frame that
-  // is being recorded has finished.
+  // is being recorded has finished. A new buffer has room for twice what the frame has used so
+  // far, so a frame that uploads many images replaces its buffer a few times, not once for each
+  // image.
   auto reserve_staging(frame_slot &slot, std::size_t bytes)
       -> std::expected<std::pair<std::size_t, std::byte *>, render_error> {
     auto const offset = align_up(slot.staging_used, placement_alignment);
     if (slot.staging.resource == nullptr || offset + bytes > slot.staging.size) {
-      auto bigger =
-          create_buffer(std::max(bytes * 2, smallest_staging_buffer), D3D12_HEAP_TYPE_UPLOAD);
+      auto bigger = create_buffer(std::max((offset + bytes) * 2, smallest_staging_buffer),
+                                  D3D12_HEAP_TYPE_UPLOAD);
       if (!bigger) {
         return std::unexpected(std::move(bigger.error()));
       }
