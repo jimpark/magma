@@ -486,6 +486,39 @@ auto platform::poll_events() -> std::vector<platform_event> {
       result.push_back({event.tfinger.windowID, value});
       break;
     }
+    case SDL_EVENT_DROP_BEGIN:
+      impl_->file_drags[event.drop.windowID] = {};
+      break;
+    case SDL_EVENT_DROP_POSITION: {
+      auto &drag = impl_->file_drags[event.drop.windowID];
+      auto value = basalt::file_drop_event{};
+      value.action =
+          drag.entered ? basalt::file_drop_action::move : basalt::file_drop_action::enter;
+      value.position = pointer_position(event.drop.x, event.drop.y);
+      value.time = timestamp;
+      drag.entered = true;
+      result.push_back({event.drop.windowID, value});
+      break;
+    }
+    case SDL_EVENT_DROP_FILE:
+      // SDL frees the path after this event.
+      if (event.drop.data != nullptr) {
+        impl_->file_drags[event.drop.windowID].paths.emplace_back(event.drop.data);
+      }
+      break;
+    case SDL_EVENT_DROP_COMPLETE: {
+      auto drag = impl_->file_drags.extract(event.drop.windowID);
+      auto value = basalt::file_drop_event{};
+      value.position = pointer_position(event.drop.x, event.drop.y);
+      value.time = timestamp;
+      if (!drag.empty()) {
+        value.paths = std::move(drag.mapped().paths);
+      }
+      value.action =
+          value.paths.empty() ? basalt::file_drop_action::leave : basalt::file_drop_action::drop;
+      result.push_back({event.drop.windowID, value});
+      break;
+    }
     default:
       break;
     }

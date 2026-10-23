@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -223,6 +224,73 @@ TEST_CASE("a wheel turned away from the user scrolls the content toward the top"
   CHECK(wheels[0].delta == basalt::point{0, -40});
   CHECK(wheels[0].precise);
   CHECK(wheels[1].delta == basalt::point{0, 40});
+}
+
+namespace {
+
+auto drop_event(SDL_EventType type, magma::window_id window, float x, float y,
+                char const *data = nullptr) -> SDL_Event {
+  auto event = SDL_Event{};
+  event.drop.type = type;
+  event.drop.windowID = window;
+  event.drop.x = x;
+  event.drop.y = y;
+  event.drop.data = data;
+  return event;
+}
+
+auto file_drops(magma::platform &platform) -> std::vector<basalt::file_drop_event> {
+  auto drops = std::vector<basalt::file_drop_event>{};
+  for (auto const &entry : platform.poll_events()) {
+    if (auto const *const drop = std::get_if<basalt::file_drop_event>(&entry.event)) {
+      drops.push_back(*drop);
+    }
+  }
+  return drops;
+}
+
+} // namespace
+
+TEST_CASE("files dropped on a window become one drop with every path", "[platform][events]") {
+  auto platform = make_platform();
+  auto const window = make_window(platform, {100, 100});
+  push(drop_event(SDL_EVENT_DROP_BEGIN, window, 0, 0));
+  push(drop_event(SDL_EVENT_DROP_POSITION, window, 10, 20));
+  push(drop_event(SDL_EVENT_DROP_POSITION, window, 30, 40));
+  push(drop_event(SDL_EVENT_DROP_FILE, window, 30, 40, "/photos/a.jpg"));
+  push(drop_event(SDL_EVENT_DROP_FILE, window, 30, 40, "/photos/b c.jpg"));
+  push(drop_event(SDL_EVENT_DROP_COMPLETE, window, 30, 40));
+
+  auto const drops = file_drops(platform);
+  REQUIRE(drops.size() == 3);
+  CHECK(drops[0].action == basalt::file_drop_action::enter);
+  CHECK(drops[0].position == basalt::point{10, 20});
+  CHECK(drops[1].action == basalt::file_drop_action::move);
+  CHECK(drops[1].position == basalt::point{30, 40});
+  CHECK(drops[2].action == basalt::file_drop_action::drop);
+  CHECK(drops[2].position == basalt::point{30, 40});
+  CHECK(drops[2].paths == std::vector<std::string>{"/photos/a.jpg", "/photos/b c.jpg"});
+}
+
+TEST_CASE("a file drag that leaves the window ends with a leave", "[platform][events]") {
+  auto platform = make_platform();
+  auto const window = make_window(platform, {100, 100});
+  push(drop_event(SDL_EVENT_DROP_BEGIN, window, 0, 0));
+  push(drop_event(SDL_EVENT_DROP_POSITION, window, 10, 20));
+  push(drop_event(SDL_EVENT_DROP_COMPLETE, window, 0, 0));
+
+  auto const drops = file_drops(platform);
+  REQUIRE(drops.size() == 2);
+  CHECK(drops[0].action == basalt::file_drop_action::enter);
+  CHECK(drops[1].action == basalt::file_drop_action::leave);
+  CHECK(drops[1].paths.empty());
+
+  // The next drag starts over with an enter.
+  push(drop_event(SDL_EVENT_DROP_BEGIN, window, 0, 0));
+  push(drop_event(SDL_EVENT_DROP_POSITION, window, 5, 5));
+  auto const next = file_drops(platform);
+  REQUIRE(next.size() == 1);
+  CHECK(next[0].action == basalt::file_drop_action::enter);
 }
 
 TEST_CASE("a button press counts the pressed button as held", "[platform][events]") {
