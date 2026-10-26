@@ -450,7 +450,14 @@ TEST_CASE("an exception from a dialog callback is kept for poll_events", "[platf
   auto const chosen = std::array<char const *, 2>{"/photos", nullptr};
   REQUIRE_NOTHROW(magma::detail::on_dialog(state.release(), chosen.data(), 0));
   REQUIRE(errors->size() == 1);
-  CHECK_THROWS_AS(std::rethrow_exception(errors->front()), std::runtime_error);
+  // CHECK_THROWS_AS adds code after the [[noreturn]] rethrow, which MSVC reports as C4702.
+  auto caught = false;
+  try {
+    std::rethrow_exception(errors->front());
+  } catch (std::runtime_error const &) {
+    caught = true;
+  }
+  CHECK(caught);
 }
 
 TEST_CASE("a dialog keeps its starting folder and filters until SDL calls back",
