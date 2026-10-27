@@ -218,20 +218,23 @@ TEST_CASE("a live resize callback sees each resize and can be removed", "[platfo
   CHECK(seen.size() == 1);
 }
 
-TEST_CASE("a wheel turned away from the user scrolls the content toward the top",
-          "[platform][events]") {
+TEST_CASE("a wheel event scrolls the way the user's setting reports it", "[platform][events]") {
   auto platform = make_platform();
   auto const window = make_window(platform, {100, 100});
   auto event = SDL_Event{};
   event.wheel.type = SDL_EVENT_MOUSE_WHEEL;
   event.wheel.windowID = window;
-  // SDL: one notch away from the user.
+  // SDL: one notch toward the top of the content.
   event.wheel.y = 1;
   event.wheel.mouse_x = 10;
   event.wheel.mouse_y = 20;
   event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
   push(event);
+  // A reversed setting has already reversed y; FLIPPED only reports that.
   event.wheel.direction = SDL_MOUSEWHEEL_FLIPPED;
+  push(event);
+  event.wheel.y = 0;
+  event.wheel.x = 1;
   push(event);
 
   auto wheels = std::vector<basalt::wheel_event>{};
@@ -240,12 +243,13 @@ TEST_CASE("a wheel turned away from the user scrolls the content toward the top"
       wheels.push_back(*wheel);
     }
   }
-  REQUIRE(wheels.size() == 2);
+  REQUIRE(wheels.size() == 3);
   CHECK(wheels[0].position == basalt::point{10, 20});
   // Basalt: negative y moves the content down, which shows what is above.
   CHECK(wheels[0].delta == basalt::point{0, -40});
   CHECK(wheels[0].precise);
-  CHECK(wheels[1].delta == basalt::point{0, 40});
+  CHECK(wheels[1].delta == basalt::point{0, -40});
+  CHECK(wheels[2].delta == basalt::point{40, 0});
 }
 
 namespace {
