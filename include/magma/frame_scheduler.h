@@ -41,11 +41,12 @@ public:
   // every `interval`. A zero or negative interval keeps the current one.
   auto display_refreshed(nanoseconds time, nanoseconds interval) noexcept -> void {
     last_refresh_ = time;
+    follows_display_ = true;
     if (interval > 0) {
       interval_ = interval;
     }
   }
-  [[nodiscard]] auto follows_display() const noexcept -> bool { return last_refresh_.has_value(); }
+  [[nodiscard]] auto follows_display() const noexcept -> bool { return follows_display_; }
 
   auto request_frame() noexcept -> void { pending_ = true; }
   // Requests a frame because of input.
@@ -66,22 +67,22 @@ public:
     if (!pending_) {
       return std::nullopt;
     }
-    if (!last_start_) {
+    if (!started_) {
       return nanoseconds{0};
     }
     if (input_ && shown_) {
-      return *last_start_;
+      return last_start_;
     }
-    if (last_refresh_) {
-      if (*last_refresh_ > *last_start_) {
-        return *last_refresh_;
+    if (follows_display_) {
+      if (last_refresh_ > last_start_) {
+        return last_refresh_;
       }
       if (shown_) {
-        return *last_start_ + interval_;
+        return last_start_ + interval_;
       }
-      return std::max(*last_refresh_ + 2 * interval_, *last_start_ + interval_);
+      return std::max(last_refresh_ + 2 * interval_, last_start_ + interval_);
     }
-    return *last_start_ + interval_;
+    return last_start_ + interval_;
   }
 
   [[nodiscard]] auto frame_due(nanoseconds now) const noexcept -> bool {
@@ -103,6 +104,7 @@ public:
   // produced schedules another frame.
   auto begin_frame(nanoseconds now) noexcept -> void {
     last_start_ = start_time(now);
+    started_ = true;
     pending_ = false;
     input_ = false;
     shown_ = false;
@@ -111,16 +113,20 @@ public:
 private:
   // The time a frame that begins at `now` counts as started.
   [[nodiscard]] auto start_time(nanoseconds now) const noexcept -> nanoseconds {
-    if (!pending_ || !last_start_ || last_refresh_ || (input_ && shown_)) {
+    if (!pending_ || !started_ || follows_display_ || (input_ && shown_)) {
       return now;
     }
-    auto const due = *last_start_ + interval_;
+    auto const due = last_start_ + interval_;
     return now >= due && now - due < interval_ ? due : now;
   }
 
   nanoseconds interval_;
-  std::optional<nanoseconds> last_start_;
-  std::optional<nanoseconds> last_refresh_;
+  // GCC 14 reports std::optional members here as maybe uninitialized at -O3, so each time has
+  // a flag instead.
+  nanoseconds last_start_ = 0;
+  nanoseconds last_refresh_ = 0;
+  bool started_ = false;
+  bool follows_display_ = false;
   bool pending_ = false;
   bool input_ = false;
   bool shown_ = false;

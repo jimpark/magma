@@ -1,6 +1,7 @@
 // A Basalt widget tree in a Magma window. A button counts clicks, and a label shows the count.
 
 #include "basalt/basalt.h"
+
 #include "magma/magma.h"
 
 #include <chrono>
@@ -92,7 +93,8 @@ auto main() -> int {
     }
     auto commands = basalt::paint_commands{};
     basalt::paint_tree(tree, commands);
-    if (auto const drawn = renderer.render(commands, damage, tree.theme().colors.background_default);
+    if (auto const drawn =
+            renderer.render(commands, damage, tree.theme().colors.background_default);
         !drawn) {
       std::cerr << drawn.error().message << '\n';
     }
